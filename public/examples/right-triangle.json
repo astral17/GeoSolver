@@ -1,0 +1,31 @@
+{
+  "format": "geosolver",
+  "version": 1,
+  "projectTitle": "Прямоугольный треугольник 3–4–5",
+  "points": [
+    { "id": "A", "x": -2, "y": -1.5 },
+    { "id": "B", "x": 2, "y": -1.5 },
+    { "id": "C", "x": -2, "y": 1.5 }
+  ],
+  "shapes": [
+    {
+      "id": "example-right-triangle",
+      "type": "polygon",
+      "points": ["A", "B", "C"],
+      "color": "#5b6df9"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    { "id": 101, "expression": "AB = 4", "enabled": true, "color": "#5b6df9" },
+    { "id": 102, "expression": "AC = 3", "enabled": true, "color": "#ef6b62" },
+    { "id": 103, "expression": "∠BAC = 90°", "enabled": true, "color": "#26a880" }
+  ],
+  "unknown": [
+    { "id": 104, "expression": "BC", "enabled": true, "color": "#f0a11b" }
+  ],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1800",
+  "solverTimeLimitMs": "3500",
+  "view": { "x": 0, "y": 0, "scale": 86 }
+}

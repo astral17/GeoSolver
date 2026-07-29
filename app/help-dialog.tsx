@@ -1,24 +1,12 @@
 "use client";
 
 import { useRef } from "react";
+import {
+  PROJECT_EXAMPLES,
+  type ProjectExample,
+} from "./examples";
 import type { Locale } from "./i18n";
-
-export const SYMBOL_COMMANDS = [
-  { command: "angle", symbol: "∠", purpose: "угол", purposeEn: "angle" },
-  { command: "cap", symbol: "∩", purpose: "пересечение", purposeEn: "intersection" },
-  { command: "empty", symbol: "∅", purpose: "пустое множество", purposeEn: "empty set" },
-  { command: "deg", symbol: "°", purpose: "градусы", purposeEn: "degrees" },
-  { command: "in", symbol: "∈", purpose: "принадлежность", purposeEn: "membership" },
-  { command: "perp", symbol: "⟂", purpose: "перпендикулярность", purposeEn: "perpendicular" },
-  { command: "parallel", symbol: "∥", purpose: "параллельность", purposeEn: "parallel" },
-  { command: "neq", symbol: "≠", purpose: "не равно", purposeEn: "not equal" },
-  { command: "le", symbol: "≤", purpose: "меньше или равно", purposeEn: "less or equal" },
-  { command: "ge", symbol: "≥", purpose: "больше или равно", purposeEn: "greater or equal" },
-  { command: "sqrt", symbol: "√", purpose: "квадратный корень", purposeEn: "square root" },
-  { command: "pi", symbol: "π", purpose: "число π", purposeEn: "pi" },
-  { command: "times", symbol: "×", purpose: "умножение", purposeEn: "multiplication" },
-  { command: "div", symbol: "÷", purpose: "деление", purposeEn: "division" },
-] as const;
+import { SYMBOL_COMMANDS } from "./symbol-commands";
 
 type HelpTool = {
   id: string;
@@ -28,6 +16,10 @@ type HelpTool = {
 };
 
 const HELP_TOOL_GROUPS: Record<string, string> = {
+  segment: "Линии",
+  line: "Линии",
+  ray: "Линии",
+  polyline: "Линии",
   circle: "Окружности",
   ellipse: "Окружности",
   sector: "Окружности",
@@ -39,14 +31,22 @@ const HELP_TOOL_GROUPS: Record<string, string> = {
   rightTriangle: "Треугольники",
   isoscelesTriangle: "Треугольники",
   equilateralTriangle: "Треугольники",
+  quadrilateral: "Четырёхугольники",
   square: "Четырёхугольники",
   rectangle: "Четырёхугольники",
   parallelogram: "Четырёхугольники",
   trapezoid: "Четырёхугольники",
   rhombus: "Четырёхугольники",
+  setLength: "Задать условие",
+  setAngle: "Задать условие",
+  setArea: "Задать условие",
 };
 
 const HELP_TOOL_GROUPS_EN: Record<string, string> = {
+  segment: "Lines",
+  line: "Lines",
+  ray: "Lines",
+  polyline: "Lines",
   circle: "Circles",
   ellipse: "Circles",
   sector: "Circles",
@@ -58,25 +58,37 @@ const HELP_TOOL_GROUPS_EN: Record<string, string> = {
   rightTriangle: "Triangles",
   isoscelesTriangle: "Triangles",
   equilateralTriangle: "Triangles",
+  quadrilateral: "Quadrilaterals",
   square: "Quadrilaterals",
   rectangle: "Quadrilaterals",
   parallelogram: "Quadrilaterals",
   trapezoid: "Quadrilaterals",
   rhombus: "Quadrilaterals",
+  setLength: "Set condition",
+  setAngle: "Set condition",
+  setArea: "Set condition",
 };
 
 export function HelpDialog({
   tools,
   locale,
+  onLoadExample,
   onClose,
 }: {
   tools: HelpTool[];
   locale: Locale;
+  onLoadExample: (example: ProjectExample) => void;
   onClose: () => void;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
   if (locale === "en") {
-    return <EnglishHelpDialog tools={tools} onClose={onClose} />;
+    return (
+      <EnglishHelpDialog
+        tools={tools}
+        onLoadExample={onLoadExample}
+        onClose={onClose}
+      />
+    );
   }
   const goToSection = (id: string) => {
     contentRef.current
@@ -113,6 +125,9 @@ export function HelpDialog({
           <nav className="help-nav" aria-label="Разделы справки">
             <button type="button" onClick={() => goToSection("help-start")}>
               Быстрый старт
+            </button>
+            <button type="button" onClick={() => goToSection("help-examples")}>
+              Готовые примеры
             </button>
             <button type="button" onClick={() => goToSection("help-tools")}>
               Инструменты
@@ -164,7 +179,8 @@ export function HelpDialog({
                   <b>Добавьте цели.</b>
                   <span>
                     Запись <code>BC</code> просит найти длину, а{" "}
-                    <code>S(ABCD)</code> — площадь. Суффикс{" "}
+                    <code>S(ABCD)</code> — площадь, а{" "}
+                    <code>P(ABCD)</code> — периметр. Суффикс{" "}
                     <code>= ?</code> добавится автоматически.
                   </span>
                 </li>
@@ -196,17 +212,65 @@ export function HelpDialog({
                 активные «Условия» или «Решение» возвращает к чертежу. В
                 альбомной ориентации шапка становится компактной, а
                 прокручиваемая панель инструментов располагается слева.
+                Чертёж масштабируется жестом двумя пальцами.
               </div>
             </section>
 
+            <section id="help-examples" className="help-section">
+              <span className="help-kicker">02 · ГОТОВЫЕ ПРОЕКТЫ</span>
+              <h2>Примеры для экспериментов</h2>
+              <p>
+                Пример заменит текущий чертёж и сразу откроется в основном
+                редакторе. Его можно свободно менять и сохранять как обычный
+                проект. Каждый пример хранится отдельным JSON-файлом и
+                загружается тем же импортёром, что и пользовательский файл.
+              </p>
+              <HelpProjectExamples
+                locale="ru"
+                onLoadExample={onLoadExample}
+              />
+            </section>
+
             <section id="help-tools" className="help-section">
-              <span className="help-kicker">02 · ЧЕРТЁЖ</span>
+              <span className="help-kicker">03 · ЧЕРТЁЖ</span>
               <h2>Инструменты</h2>
               <p>
                 Выберите инструмент кнопкой или горячей клавишей. Вложенные
                 варианты раскрываются нажатием на кнопку секции и выбираются
-                стрелками, цифрами или касанием. На мобильном устройстве
-                повторное нажатие на раскрытую секцию закрывает её без выбора.
+                стрелками, цифрами или касанием. Горячая клавиша секции сразу
+                активирует текущий либо первый инструмент в ней, а цифры
+                относятся только к пунктам уже открытой секции. На мобильном
+                устройстве повторное нажатие на раскрытую секцию закрывает её
+                без выбора.
+              </p>
+              <p>
+                В каталоге объектов для каждой фигуры доступен одинаковый
+                полный список типов. Если новому типу требуется другое число
+                точек или поле заполнено неверно, ошибка сразу появляется под
+                редактируемым объектом. Стрелки продолжают навигацию через
+                объекты, условия и цели; при входе в пустую секцию формул
+                создаётся пустая строка. Скрытие фигуры также скрывает её
+                штрихи равенства, дуги углов и связанные подписи.
+              </p>
+              <p>
+                Кнопка <code>⊞</code> в заголовке секции создаёт именованную
+                группу объектов, условий или целей. Перетащите строку на
+                заголовок развёрнутой группы, чтобы внести её, либо на тонкую
+                линию после группы, чтобы перенести через нижнюю границу в
+                любом направлении. У свёрнутой группы такой зоны нет, и новые
+                строки она не принимает. Группу можно переименовать и
+                свернуть. Сами группы перемещаются за ручку <code>⠿</code> или
+                сочетанием <code>Alt+↑/↓</code>; группу можно опустить прямо
+                над или под обычной строкой. Для переноса за открытую группу
+                достаточно нижней половины её заголовка. Порядок меняется
+                сразу. Закрытая группа
+                считается одним шагом и не заставляет строку перепрыгивать
+                следующую группу. Вместе с заголовком переносится всё
+                содержимое. При обычной навигации{" "}
+                <code>↑/↓</code> имя группы является отдельным шагом между
+                соседними строками.
+                Кнопка <code>◎</code> у фигуры или группы выделяет все
+                связанные точки; после этого их можно перемещать вместе.
               </p>
               <div className="help-table-wrap">
                 <table className="help-table">
@@ -243,14 +307,15 @@ export function HelpDialog({
                 </table>
               </div>
               <p>
-                Многоугольник и измерение площади завершаются повторным нажатием
-                на уже выбранную вершину. Для удаления нескольких объектов
+                Ломаная и инструмент задания площади завершаются повторным
+                нажатием на последнюю выбранную точку; многоугольник замыкается
+                нажатием на выбранную вершину. Для удаления нескольких объектов
                 сначала выделите их рамкой.
               </p>
             </section>
 
             <section id="help-constraints" className="help-section">
-              <span className="help-kicker">03 · ИЗВЕСТНЫЕ ДАННЫЕ</span>
+              <span className="help-kicker">04 · ИЗВЕСТНЫЕ ДАННЫЕ</span>
               <h2>Ограничения</h2>
               <p>
                 Одна строка — одно условие. Распознанная строка отмечается
@@ -287,6 +352,7 @@ export function HelpDialog({
                 <HelpExample code="D ∈ line(AB)" text="точка на прямой" />
                 <HelpExample code="D ∈ ray(AB)" text="точка на луче" />
                 <HelpExample code="D ∈ circle(OA)" text="точка на окружности" />
+                <HelpExample code="D ∈ arc(OAB)" text="точка на видимой дуге" />
                 <HelpExample
                   code="D ∈ ellipse(OAB)"
                   text="точка на эллипсе"
@@ -299,7 +365,7 @@ export function HelpDialog({
             </section>
 
             <section id="help-formulas" className="help-section">
-              <span className="help-kicker">04 · АЛГЕБРА</span>
+              <span className="help-kicker">05 · АЛГЕБРА</span>
               <h2>Формулы, переменные и координаты</h2>
               <p>
                 Длины записываются двумя буквами, углы — тремя буквами с
@@ -342,7 +408,7 @@ export function HelpDialog({
             </section>
 
             <section id="help-targets" className="help-section">
-              <span className="help-kicker">05 · РЕЗУЛЬТАТЫ</span>
+              <span className="help-kicker">06 · РЕЗУЛЬТАТЫ</span>
               <h2>Цели и измерения</h2>
               <div className="help-columns">
                 <div>
@@ -355,6 +421,13 @@ export function HelpDialog({
                     <li><code>AB</code> — длина;</li>
                     <li><code>∠ABC</code> — угол;</li>
                     <li><code>S(ABCD)</code> — площадь;</li>
+                    <li><code>P(ABCD)</code> — периметр;</li>
+                    <li>
+                      <code>S(circle(AB))</code>,{" "}
+                      <code>S(sector(ABC))</code>,{" "}
+                      <code>S(segment(ABC))</code>,{" "}
+                      <code>S(ellipse(ABC))</code> — площади круглых фигур;
+                    </li>
                     <li><code>AB + BC</code> — значение формулы.</li>
                   </ul>
                 </div>
@@ -370,8 +443,9 @@ export function HelpDialog({
                     <li>длина — выберите две существующие точки;</li>
                     <li>угол — выберите три существующие точки;</li>
                     <li>
-                      площадь — обойдите существующие вершины по порядку и
-                      замкните.
+                      площадь — кликните свободную часть границы готовой фигуры
+                      для быстрого измерения либо нажимайте именно на точки,
+                      чтобы вручную обойти желаемые вершины и замкнуть список.
                     </li>
                   </ul>
                 </div>
@@ -379,7 +453,7 @@ export function HelpDialog({
             </section>
 
             <section id="help-symbols" className="help-section">
-              <span className="help-kicker">06 · УДОБНЫЙ ВВОД</span>
+              <span className="help-kicker">07 · УДОБНЫЙ ВВОД</span>
               <h2>Команды специальных символов</h2>
               <p>
                 В условиях и целях введите обратную косую черту и название
@@ -404,12 +478,13 @@ export function HelpDialog({
             </section>
 
             <section id="help-solver" className="help-section">
-              <span className="help-kicker">07 · ЧИСЛЕННЫЙ ПОИСК</span>
+              <span className="help-kicker">08 · ЧИСЛЕННЫЙ ПОИСК</span>
               <h2>Как работает решатель</h2>
               <p>
                 Координаты точек становятся переменными, а распознанные условия
                 — системой уравнений. Решатель запускает несколько стартовых
-                приближений и минимизирует общую невязку.
+                приближений и минимизирует общую невязку адаптивным методом
+                наименьших квадратов.
               </p>
               <div className="help-columns">
                 <div>
@@ -419,6 +494,9 @@ export function HelpDialog({
                     решение точным. Значение по умолчанию — <code>1e-6</code>.
                     Меньшее значение требует более точного совпадения, но может
                     увеличить время поиска. Эпсилон находится в настройках.
+                    Там же задаются максимальное количество итераций и
+                    временной лимит; при достижении лимита показывается лучшее
+                    найденное приближение.
                   </p>
                 </div>
                 <div>
@@ -433,7 +511,7 @@ export function HelpDialog({
             </section>
 
             <section id="help-shortcuts" className="help-section">
-              <span className="help-kicker">08 · КЛАВИАТУРА</span>
+              <span className="help-kicker">09 · КЛАВИАТУРА</span>
               <h2>Горячие клавиши</h2>
               <div className="help-shortcut-grid">
                 <HelpShortcut keys="Ctrl + Z" text="отменить действие" />
@@ -448,7 +526,10 @@ export function HelpDialog({
                   text="завершить редактирование строки"
                 />
                 <HelpShortcut keys="↑ / ↓" text="перейти к соседней строке" />
-                <HelpShortcut keys="Alt + ↑ / ↓" text="переместить строку" />
+                <HelpShortcut
+                  keys="Alt + ↑ / ↓"
+                  text="переместить строку или группу"
+                />
                 <HelpShortcut keys="Delete" text="удалить выделенные точки" />
                 <HelpShortcut keys="Escape" text="сбросить текущий инструмент" />
                 <HelpShortcut keys="F1 или ?" text="открыть эту справку" />
@@ -468,9 +549,11 @@ export function HelpDialog({
 
 function EnglishHelpDialog({
   tools,
+  onLoadExample,
   onClose,
 }: {
   tools: HelpTool[];
+  onLoadExample: (example: ProjectExample) => void;
   onClose: () => void;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -481,6 +564,7 @@ function EnglishHelpDialog({
   };
   const navigation = [
     ["help-start-en", "Quick start"],
+    ["help-examples-en", "Ready examples"],
     ["help-tools-en", "Tools"],
     ["help-constraints-en", "Constraints"],
     ["help-formulas-en", "Formulas"],
@@ -544,7 +628,8 @@ function EnglishHelpDialog({
                   <b>Add targets.</b>
                   <span>
                     Use <code>BC</code> for a length or{" "}
-                    <code>S(ABCD)</code> for an area. The optional{" "}
+                    <code>S(ABCD)</code> for an area and{" "}
+                    <code>P(ABCD)</code> for a perimeter. The optional{" "}
                     <code>= ?</code> suffix is added automatically.
                   </span>
                 </li>
@@ -561,13 +646,58 @@ function EnglishHelpDialog({
               </div>
             </section>
 
+            <section id="help-examples-en" className="help-section">
+              <span className="help-kicker">02 · READY PROJECTS</span>
+              <h2>Examples to explore</h2>
+              <p>
+                Loading an example replaces the current drawing and opens it
+                in the main editor. You can edit and save it like any project.
+                Each example is a separate JSON file processed by the regular
+                project importer.
+              </p>
+              <HelpProjectExamples
+                locale="en"
+                onLoadExample={onLoadExample}
+              />
+            </section>
+
             <section id="help-tools-en" className="help-section">
-              <span className="help-kicker">02 · DRAWING</span>
+              <span className="help-kicker">03 · DRAWING</span>
               <h2>Tools</h2>
               <p>
                 Choose a tool from the rail or with its shortcut. Group buttons
-                open nested tools; use arrows, section digits or touch to
-                choose one.
+                open nested tools; use arrows, digits or touch to choose one.
+                A group shortcut immediately activates its current or first
+                tool, while digits only select items in the already open
+                group. Pinch the drawing with two fingers to zoom it.
+              </p>
+              <p>
+                The object catalog uses the same complete type list for every
+                shape. If the selected type needs a different number of
+                points or a field is invalid, the error appears immediately
+                below the object being edited. Arrow keys continue through objects, conditions and
+                targets; entering an empty formula section creates a blank
+                row. Hiding a shape also hides its equality ticks, angle arcs
+                and related annotations.
+              </p>
+              <p>
+                The <code>⊞</code> button in a section header creates a named
+                group of objects, conditions or targets. Drag a row onto an
+                expanded group header to place it inside, or onto the thin line
+                after the group to move it across the lower boundary in either
+                direction. Collapsed groups have no such zone and do not accept
+                new rows. Groups can be renamed and collapsed. Drag a group by
+                its <code>⠿</code> handle or use <code>Alt+↑/↓</code> to move
+                it directly above or below a regular row, together with all
+                its contents. Dropping on the lower half of an expanded
+                group&apos;s header is enough to move below it. The order
+                changes immediately. A collapsed
+                group counts as one step and never makes a row skip the next
+                group. With regular{" "}
+                <code>↑/↓</code> navigation, the group name is a separate step
+                between adjacent rows. The{" "}
+                <code>◎</code> button on a shape or group selects all related
+                points so they can be moved together.
               </p>
               <div className="help-table-wrap">
                 <table className="help-table">
@@ -606,10 +736,15 @@ function EnglishHelpDialog({
                 an angle greater than 180°. Circular segment draws the region
                 between a chord and its arc.
               </p>
+              <p>
+                A polyline and the Set area tool finish when you click the last
+                selected point again. A polygon closes when you click one of
+                its selected vertices.
+              </p>
             </section>
 
             <section id="help-constraints-en" className="help-section">
-              <span className="help-kicker">03 · KNOWN FACTS</span>
+              <span className="help-kicker">04 · KNOWN FACTS</span>
               <h2>Constraints</h2>
               <p>
                 Enter one condition per row. Drag the handle to reorder rows in
@@ -634,6 +769,7 @@ function EnglishHelpDialog({
                   text="line-circle intersection"
                 />
                 <HelpExample code="D ∈ circle(OA)" text="point on a circle" />
+                <HelpExample code="D ∈ arc(OAB)" text="point on a visible arc" />
                 <HelpExample
                   code="D ∈ ellipse(OAB)"
                   text="point on an ellipse"
@@ -646,7 +782,7 @@ function EnglishHelpDialog({
             </section>
 
             <section id="help-formulas-en" className="help-section">
-              <span className="help-kicker">04 · ALGEBRA</span>
+              <span className="help-kicker">05 · ALGEBRA</span>
               <h2>Formulas, variables and coordinates</h2>
               <p>
                 Expressions support <code>+ − × ÷ ^</code>, parentheses,{" "}
@@ -664,19 +800,27 @@ function EnglishHelpDialog({
             </section>
 
             <section id="help-targets-en" className="help-section">
-              <span className="help-kicker">05 · RESULTS</span>
+              <span className="help-kicker">06 · RESULTS</span>
               <h2>Targets and measurements</h2>
               <p>
                 The <code>= ?</code> suffix is optional and is appended when
                 you leave the field. Targets can be <code>AB</code>,{" "}
-                <code>∠ABC</code>, <code>S(ABCD)</code>, or a full formula.
-                Measurement tools read the current solved drawing without
-                adding constraints, targets or points.
+                <code>∠ABC</code>, <code>S(ABCD)</code>,{" "}
+                <code>P(ABCD)</code>, or a full formula. Circular geometry
+                uses <code>S(circle(AB))</code>,{" "}
+                <code>S(sector(ABC))</code>,{" "}
+                <code>S(segment(ABC))</code>, and{" "}
+                <code>S(ellipse(ABC))</code>. Replace <code>S</code> with{" "}
+                <code>P</code> to get the boundary length. Measurement tools
+                read the current solved drawing without adding constraints,
+                targets or points. For area, click an empty part of a shape
+                boundary to detect it automatically, or click existing points
+                to build and close an exact vertex list manually.
               </p>
             </section>
 
             <section id="help-symbols-en" className="help-section">
-              <span className="help-kicker">06 · INPUT</span>
+              <span className="help-kicker">07 · INPUT</span>
               <h2>Special symbol commands</h2>
               <p>
                 Backslash commands expand as you type. For example,{" "}
@@ -695,12 +839,15 @@ function EnglishHelpDialog({
             </section>
 
             <section id="help-solver-en" className="help-section">
-              <span className="help-kicker">07 · NUMERICAL SEARCH</span>
+              <span className="help-kicker">08 · NUMERICAL SEARCH</span>
               <h2>How the solver works</h2>
               <p>
                 Point coordinates become variables and recognized conditions
                 become residual equations. Several starting approximations are
-                optimized. The default epsilon is <code>1e-6</code>.
+                optimized with adaptive least squares. The default epsilon is{" "}
+                <code>1e-6</code>. Settings also contain iteration and time
+                limits; the best approximation is returned when a limit is
+                reached.
               </p>
               <div className="help-callout">
                 If all constraints cannot be satisfied, GeoSolver shows the
@@ -709,7 +856,7 @@ function EnglishHelpDialog({
             </section>
 
             <section id="help-shortcuts-en" className="help-section">
-              <span className="help-kicker">08 · KEYBOARD</span>
+              <span className="help-kicker">09 · KEYBOARD</span>
               <h2>Shortcuts</h2>
               <div className="help-shortcut-grid">
                 <HelpShortcut keys="Ctrl + Z" text="undo" />
@@ -718,7 +865,7 @@ function EnglishHelpDialog({
                 <HelpShortcut keys="Shift + Enter" text="save and add a row" />
                 <HelpShortcut keys="Enter / Escape" text="finish editing" />
                 <HelpShortcut keys="↑ / ↓" text="focus the adjacent row" />
-                <HelpShortcut keys="Alt + ↑ / ↓" text="move a row" />
+                <HelpShortcut keys="Alt + ↑ / ↓" text="move a row or group" />
                 <HelpShortcut keys="Delete" text="delete selected objects" />
                 <HelpShortcut keys="F1 or ?" text="open help" />
               </div>
@@ -726,6 +873,31 @@ function EnglishHelpDialog({
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function HelpProjectExamples({
+  locale,
+  onLoadExample,
+}: {
+  locale: Locale;
+  onLoadExample: (example: ProjectExample) => void;
+}) {
+  return (
+    <div className="help-project-grid">
+      {PROJECT_EXAMPLES.map((example) => (
+        <article className="help-project-card" key={example.id}>
+          <div>
+            <b>{example.title[locale]}</b>
+            <p>{example.description[locale]}</p>
+          </div>
+          <button type="button" onClick={() => onLoadExample(example)}>
+            {locale === "ru" ? "Загрузить в редактор" : "Load in editor"}
+            <span aria-hidden="true">→</span>
+          </button>
+        </article>
+      ))}
     </div>
   );
 }

@@ -1,0 +1,33 @@
+{
+  "format": "geosolver",
+  "version": 1,
+  "projectTitle": "Большой сектор",
+  "points": [
+    { "id": "O", "x": 0, "y": 0 },
+    { "id": "A", "x": 4, "y": 0 },
+    { "id": "B", "x": -2, "y": 3.464101615 }
+  ],
+  "shapes": [
+    {
+      "id": "example-major-sector",
+      "type": "sector",
+      "points": ["O", "A", "B"],
+      "color": "#5b6df9",
+      "arc": "major"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    { "id": 301, "expression": "OA = 4", "enabled": true, "color": "#5b6df9" },
+    { "id": 302, "expression": "OA = OB", "enabled": true, "color": "#ef6b62" },
+    { "id": 303, "expression": "∠AOB = 120°", "enabled": true, "color": "#26a880" },
+    { "id": 304, "expression": "O = (0, 0)", "enabled": true, "color": "#f0a11b" }
+  ],
+  "unknown": [
+    { "id": 305, "expression": "S(sector(OAB))", "enabled": true, "color": "#8c5ad7" }
+  ],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1800",
+  "solverTimeLimitMs": "3500",
+  "view": { "x": 0, "y": 0, "scale": 68 }
+}

@@ -53,3 +53,21 @@ export function AppMark() {
     </span>
   );
 }
+
+export function HistoryArrowIcon({
+  direction,
+}: {
+  direction: "undo" | "redo";
+}) {
+  return (
+    <svg
+      className={`history-arrow-icon ${direction}`}
+      viewBox="0 0 20 20"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M7.1 6.2H4.2V3.3" />
+      <path d="M4.5 6.1A6.1 6.1 0 1 1 4.2 13" />
+    </svg>
+  );
+}

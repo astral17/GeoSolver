@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { PwaRegistration } from "./pwa-registration";
 
 function getSiteUrl() {
   if (process.env.NEXT_PUBLIC_SITE_URL) {
@@ -12,7 +13,13 @@ function getSiteUrl() {
   const [owner, repository] = (
     process.env.GITHUB_REPOSITORY ?? ""
   ).split("/");
-  if (owner && repository && process.env.GITHUB_ACTIONS === "true") {
+  if (
+    owner &&
+    repository &&
+    (process.env.GITHUB_ACTIONS === "true" ||
+      process.env.GITHUB_PAGES === "true" ||
+      process.env.npm_lifecycle_event === "build:pages")
+  ) {
     const projectPath =
       repository.toLowerCase() === `${owner.toLowerCase()}.github.io`
         ? ""
@@ -48,6 +55,30 @@ export const metadata: Metadata = {
   metadataBase: siteUrl,
   title,
   description,
+  applicationName: "GeoSolver",
+  manifest: new URL("./manifest.webmanifest", siteUrl).toString(),
+  icons: {
+    icon: [
+      { url: new URL("./icon.svg", siteUrl), type: "image/svg+xml" },
+      {
+        url: new URL("./icon-192.png", siteUrl),
+        type: "image/png",
+        sizes: "192x192",
+      },
+    ],
+    apple: [
+      {
+        url: new URL("./apple-touch-icon.png", siteUrl),
+        type: "image/png",
+        sizes: "180x180",
+      },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    title: "GeoSolver",
+    statusBarStyle: "default",
+  },
   openGraph: {
     title,
     description,
@@ -69,6 +100,10 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: "#5968f6",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -79,7 +114,10 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <PwaRegistration />
+      </body>
     </html>
   );
 }

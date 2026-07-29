@@ -1,0 +1,16 @@
+export const SYMBOL_COMMANDS = [
+  { command: "angle", symbol: "∠", purpose: "угол", purposeEn: "angle" },
+  { command: "cap", symbol: "∩", purpose: "пересечение", purposeEn: "intersection" },
+  { command: "empty", symbol: "∅", purpose: "пустое множество", purposeEn: "empty set" },
+  { command: "deg", symbol: "°", purpose: "градусы", purposeEn: "degrees" },
+  { command: "in", symbol: "∈", purpose: "принадлежность", purposeEn: "membership" },
+  { command: "perp", symbol: "⟂", purpose: "перпендикулярность", purposeEn: "perpendicular" },
+  { command: "parallel", symbol: "∥", purpose: "параллельность", purposeEn: "parallel" },
+  { command: "neq", symbol: "≠", purpose: "не равно", purposeEn: "not equal" },
+  { command: "le", symbol: "≤", purpose: "меньше или равно", purposeEn: "less or equal" },
+  { command: "ge", symbol: "≥", purpose: "больше или равно", purposeEn: "greater or equal" },
+  { command: "sqrt", symbol: "√", purpose: "квадратный корень", purposeEn: "square root" },
+  { command: "pi", symbol: "π", purpose: "число π", purposeEn: "pi" },
+  { command: "times", symbol: "×", purpose: "умножение", purposeEn: "multiplication" },
+  { command: "div", symbol: "÷", purpose: "деление", purposeEn: "division" },
+] as const;

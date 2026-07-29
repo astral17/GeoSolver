@@ -1,0 +1,35 @@
+{
+  "format": "geosolver",
+  "version": 1,
+  "projectTitle": "Площадь квадрата",
+  "points": [
+    { "id": "A", "x": -3, "y": -3 },
+    { "id": "B", "x": 3, "y": -3 },
+    { "id": "C", "x": 3, "y": 3 },
+    { "id": "D", "x": -3, "y": 3 }
+  ],
+  "shapes": [
+    {
+      "id": "example-square",
+      "type": "polygon",
+      "points": ["A", "B", "C", "D"],
+      "color": "#5b6df9"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    { "id": 201, "expression": "AB = BC = CD = DA", "enabled": true, "color": "#5b6df9" },
+    { "id": 202, "expression": "AB = 6", "enabled": true, "color": "#ef6b62" },
+    { "id": 203, "expression": "∠DAB = 90°", "enabled": true, "color": "#26a880" },
+    { "id": 204, "expression": "AB ∥ CD", "enabled": true, "color": "#f0a11b" },
+    { "id": 205, "expression": "BC ∥ DA", "enabled": true, "color": "#8c5ad7" }
+  ],
+  "unknown": [
+    { "id": 206, "expression": "S(ABCD)", "enabled": true, "color": "#5b6df9" },
+    { "id": 207, "expression": "P(ABCD)", "enabled": true, "color": "#ef6b62" }
+  ],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1800",
+  "solverTimeLimitMs": "3500",
+  "view": { "x": 0, "y": 0, "scale": 62 }
+}

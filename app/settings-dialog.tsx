@@ -6,18 +6,28 @@ type SettingsDialogProps = {
   theme: "light" | "dark";
   showCongruenceMarks: boolean;
   showAngles: boolean;
+  showAreaConstraints: boolean;
   showToolHint: boolean;
   solverEpsilonInput: string;
   solverEpsilonValid: boolean;
+  solverMaxIterationsInput: string;
+  solverMaxIterationsValid: boolean;
+  solverTimeLimitMsInput: string;
+  solverTimeLimitMsValid: boolean;
   bareAngleUnit: "degrees" | "radians";
   decimalDigits: number;
   onLocaleChange: (locale: Locale) => void;
   onThemeChange: (theme: "light" | "dark") => void;
   onShowCongruenceMarksChange: (value: boolean) => void;
   onShowAnglesChange: (value: boolean) => void;
+  onShowAreaConstraintsChange: (value: boolean) => void;
   onShowToolHintChange: (value: boolean) => void;
   onSolverEpsilonInputChange: (value: string) => void;
   onSolverEpsilonInputBlur: () => void;
+  onSolverMaxIterationsInputChange: (value: string) => void;
+  onSolverMaxIterationsInputBlur: () => void;
+  onSolverTimeLimitMsInputChange: (value: string) => void;
+  onSolverTimeLimitMsInputBlur: () => void;
   onBareAngleUnitChange: (unit: "degrees" | "radians") => void;
   onDecimalDigitsChange: (digits: number) => void;
   onExport: () => void;
@@ -30,18 +40,28 @@ export function SettingsDialog({
   theme,
   showCongruenceMarks,
   showAngles,
+  showAreaConstraints,
   showToolHint,
   solverEpsilonInput,
   solverEpsilonValid,
+  solverMaxIterationsInput,
+  solverMaxIterationsValid,
+  solverTimeLimitMsInput,
+  solverTimeLimitMsValid,
   bareAngleUnit,
   decimalDigits,
   onLocaleChange,
   onThemeChange,
   onShowCongruenceMarksChange,
   onShowAnglesChange,
+  onShowAreaConstraintsChange,
   onShowToolHintChange,
   onSolverEpsilonInputChange,
   onSolverEpsilonInputBlur,
+  onSolverMaxIterationsInputChange,
+  onSolverMaxIterationsInputBlur,
+  onSolverTimeLimitMsInputChange,
+  onSolverTimeLimitMsInputBlur,
   onBareAngleUnitChange,
   onDecimalDigitsChange,
   onExport,
@@ -177,6 +197,37 @@ export function SettingsDialog({
             </label>
             <label
               className="settings-switch-row"
+              htmlFor="settings-show-area-constraints"
+            >
+              <span>
+                <b>
+                  {t(
+                    "Отображать ограничения площади",
+                    "Show area constraints",
+                  )}
+                </b>
+                <small>
+                  {t(
+                    "Заливка и подписи заданных площадей",
+                    "Fills and labels for constrained areas",
+                  )}
+                </small>
+              </span>
+              <span className="settings-switch">
+                <input
+                  id="settings-show-area-constraints"
+                  name="settings-show-area-constraints"
+                  type="checkbox"
+                  checked={showAreaConstraints}
+                  onChange={(event) =>
+                    onShowAreaConstraintsChange(event.target.checked)
+                  }
+                />
+                <i aria-hidden="true" />
+              </span>
+            </label>
+            <label
+              className="settings-switch-row"
               htmlFor="settings-show-tool-hint"
             >
               <span>
@@ -229,6 +280,64 @@ export function SettingsDialog({
                   onSolverEpsilonInputChange(event.target.value)
                 }
                 onBlur={onSolverEpsilonInputBlur}
+              />
+            </div>
+
+            <div className="settings-field">
+              <div>
+                <label htmlFor="settings-solver-iterations">
+                  {t("Максимум итераций", "Maximum iterations")}
+                </label>
+                <small>
+                  {t(
+                    "Общий предел для всех стартовых приближений",
+                    "Total limit across all starting approximations",
+                  )}
+                </small>
+              </div>
+              <input
+                id="settings-solver-iterations"
+                name="settings-solver-iterations"
+                className={
+                  solverMaxIterationsValid ? "" : "settings-input-invalid"
+                }
+                value={solverMaxIterationsInput}
+                inputMode="numeric"
+                autoComplete="off"
+                aria-invalid={!solverMaxIterationsValid}
+                onChange={(event) =>
+                  onSolverMaxIterationsInputChange(event.target.value)
+                }
+                onBlur={onSolverMaxIterationsInputBlur}
+              />
+            </div>
+
+            <div className="settings-field">
+              <div>
+                <label htmlFor="settings-solver-time-limit">
+                  {t("Лимит времени, мс", "Time limit, ms")}
+                </label>
+                <small>
+                  {t(
+                    "Поиск вернёт лучшее найденное решение по истечении лимита",
+                    "The search returns its best result when the limit expires",
+                  )}
+                </small>
+              </div>
+              <input
+                id="settings-solver-time-limit"
+                name="settings-solver-time-limit"
+                className={
+                  solverTimeLimitMsValid ? "" : "settings-input-invalid"
+                }
+                value={solverTimeLimitMsInput}
+                inputMode="numeric"
+                autoComplete="off"
+                aria-invalid={!solverTimeLimitMsValid}
+                onChange={(event) =>
+                  onSolverTimeLimitMsInputChange(event.target.value)
+                }
+                onBlur={onSolverTimeLimitMsInputBlur}
               />
             </div>
 
@@ -290,11 +399,11 @@ export function SettingsDialog({
             <h3>{t("Проект", "Project")}</h3>
             <div className="settings-file-actions">
               <button type="button" onClick={onExport}>
-                <span aria-hidden="true">↓</span>
+                <span aria-hidden="true">↑</span>
                 {t("Экспорт", "Export")}
               </button>
               <button type="button" onClick={onImport}>
-                <span aria-hidden="true">↑</span>
+                <span aria-hidden="true">↓</span>
                 {t("Импорт", "Import")}
               </button>
             </div>
