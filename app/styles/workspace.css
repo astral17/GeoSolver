@@ -555,8 +555,8 @@
 
 .step-content > p {
   margin: 0 0 11px;
-  color: #8c929c;
-  font-size: 10px;
+  color: #69727f;
+  font-size: 11px;
   line-height: 1.55;
 }
 
@@ -591,7 +591,7 @@
   overflow: hidden;
   color: #515763;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.45;
   text-overflow: ellipsis;
 }
@@ -606,8 +606,8 @@
 .equation-count {
   display: block;
   margin-top: 7px;
-  color: #a0a5ae;
-  font-size: 9px;
+  color: #727b88;
+  font-size: 10px;
 }
 
 .method-pills {
@@ -623,7 +623,7 @@
   background: #fafafb;
   color: #747b87;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 8px;
+  font-size: 9px;
 }
 
 .epsilon-control {
@@ -714,9 +714,9 @@
 
 .result-state small {
   margin-left: auto;
-  color: #8bad9f;
+  color: #5f8175;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .result-values {
@@ -725,10 +725,222 @@
 
 .result-values > div {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
   padding: 4px 0;
+}
+
+.exact-approximation {
+  flex-basis: 100%;
+  color: #60766e;
+  text-align: right;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 10px;
+}
+
+.proof-results {
+  display: grid;
+  gap: 6px;
+  padding: 0 10px 9px;
+}
+
+.proof-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 8px;
+  padding: 8px;
+  border: 1px solid #dce3e1;
+  border-radius: 7px;
+  background: rgb(255 255 255 / 65%);
+}
+
+.proof-result > span,
+.proof-result > b {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 10px;
+}
+
+.proof-result > b {
+  color: #7b8280;
+}
+
+.proof-result.proved > b {
+  color: #168564;
+}
+
+.proof-result.disproved > b {
+  color: #c34f49;
+}
+
+.proof-result > small {
+  grid-column: 1 / -1;
+  color: #626d6a;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.analytic-steps {
+  min-width: 0;
+  overflow: hidden;
+  margin: 0 10px 9px;
+  padding: 10px;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.analytic-steps > b {
+  color: #495261;
+  font-size: 11px;
+}
+
+.analytic-steps ol {
+  counter-reset: analytic-step;
+  display: grid;
+  gap: 0;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.analytic-steps li {
+  counter-increment: analytic-step;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: 7px;
+  padding: 8px 0;
+  border-top: 1px solid #edf0f4;
+  color: #5a6371;
+  font-size: 11px;
+}
+
+.analytic-steps li::before {
+  content: counter(analytic-step);
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d9deea;
+  border-radius: 50%;
+  color: #6c7584;
+  font: 700 9px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.analytic-steps li span,
+.analytic-steps li small,
+.analytic-steps li code {
+  box-sizing: border-box;
+  grid-column: 2;
+  min-width: 0;
+  display: block;
+}
+
+.analytic-steps li span {
+  font-weight: 700;
+}
+
+.analytic-steps li small {
+  margin-top: 2px;
+  color: #606b78;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.analytic-steps li code {
+  margin-top: 4px;
+  max-width: 100%;
+  padding: 5px 6px;
+  border-radius: 5px;
+  border: 1px solid #e2e5ef;
+  background: #f1f3f9;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #4758d8;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.goal-progress {
+  margin: 0 10px 9px;
+  padding: 8px 9px;
+  border: 1px solid #cfe8df;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 62%);
+}
+
+.pending-result .goal-progress,
+.pending-result .drawing-progress {
+  margin: 9px 0 0;
+}
+
+.goal-progress.incomplete {
+  border-color: #efce8b;
+  background: #fff8e9;
+}
+
+.goal-progress > div,
+.drawing-progress {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.goal-progress b,
+.goal-progress span,
+.drawing-progress span,
+.drawing-progress code {
+  font-size: 10px;
+}
+
+.goal-progress.complete b,
+.drawing-progress.rebuilt span {
+  color: #168564;
+}
+
+.goal-progress.incomplete b,
+.drawing-progress.approximate span {
+  color: #9a6508;
+}
+
+.goal-progress ul {
+  display: grid;
+  gap: 3px;
+  margin: 7px 0 0;
+  padding: 7px 0 0;
+  border-top: 1px solid #f0dba9;
+  list-style: none;
+}
+
+.goal-progress li {
+  min-width: 0;
+}
+
+.goal-progress li code {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #805b17;
+  font-size: 10px;
+}
+
+.drawing-progress {
+  margin: 0 10px 9px;
+  padding: 7px 9px;
+  border: 1px solid #dfe5ee;
+  border-radius: 7px;
+  background: rgb(255 255 255 / 55%);
+  color: #747d89;
+}
+
+.drawing-progress code {
+  flex: none;
+  color: inherit;
 }
 
 .result-values span {
@@ -760,7 +972,7 @@
   padding: 6px 10px;
   border-top: 1px solid #e1f0ea;
   color: #91a39d;
-  font-size: 8px;
+  font-size: 9.5px;
 }
 
 .residual code {
@@ -885,8 +1097,8 @@
 .solver-footer > small {
   display: block;
   margin-top: 8px;
-  color: #aaafb7;
-  font-size: 8px;
+  color: #747c88;
+  font-size: 9.5px;
   text-align: center;
 }
 

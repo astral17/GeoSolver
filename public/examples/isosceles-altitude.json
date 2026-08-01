@@ -1,0 +1,31 @@
+{
+  "format": "geosolver",
+  "version": 3,
+  "projectTitle": "Высота равнобедренного",
+  "points": [
+    { "id": "A", "x": -10.240721833042636, "y": -1.7446057503995809 },
+    { "id": "B", "x": -6.220998854066955, "y": 25.357082559499077 },
+    { "id": "C", "x": 3.6729497378765794, "y": -0.19227092269971596 },
+    { "id": "H", "x": -3.2838860497492934, "y": -0.9684383366199049 }
+  ],
+  "shapes": [
+    { "id": "shape-triangle", "type": "polygon", "points": ["A", "B", "C"], "color": "#5b6df9" },
+    { "id": "shape-altitude", "type": "segment", "points": ["B", "H"], "color": "#ef6b62" }
+  ],
+  "measurements": [],
+  "known": [
+    { "id": 1, "expression": "BH ⟂ AC", "enabled": true, "color": "#5b6df9" },
+    { "id": 2, "expression": "H ∈ CA", "enabled": true, "color": "#ef6b62" },
+    { "id": 3, "expression": "∠BAC = ∠ACB", "enabled": true, "color": "#26a880" },
+    { "id": 4, "expression": "AC = 14", "enabled": true, "color": "#f0a11b" }
+  ],
+  "unknown": [
+    { "id": 5, "expression": "AH = ?", "enabled": true, "color": "#5b6df9" }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": { "x": 63.61115951911435, "y": 110.6100120882622, "scale": 20.16735268451692 }
+}

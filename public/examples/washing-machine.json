@@ -1,0 +1,548 @@
+{
+  "format": "geosolver",
+  "version": 1,
+  "projectTitle": "Стиральная машина",
+  "points": [
+    {
+      "id": "A",
+      "x": -1.275221514806036,
+      "y": -0.6529689844743887
+    },
+    {
+      "id": "B",
+      "x": -1.508229632809781,
+      "y": 2.0858371502284903
+    },
+    {
+      "id": "C",
+      "x": 1.230576293866179,
+      "y": 2.318843550745184
+    },
+    {
+      "id": "D",
+      "x": 1.463583692916009,
+      "y": -0.4199618636741243
+    },
+    {
+      "id": "E",
+      "x": -0.022358439209142062,
+      "y": 0.8329414222940463
+    },
+    {
+      "id": "F",
+      "x": 0.09414587364074094,
+      "y": -0.5364668099223453
+    },
+    {
+      "id": "G",
+      "x": -1.391758602783942,
+      "y": 0.7164372555911837
+    },
+    {
+      "id": "H",
+      "x": -0.13886144465820005,
+      "y": 2.20234722358762
+    },
+    {
+      "id": "I",
+      "x": 1.3470556032829788,
+      "y": 0.9494457730007169
+    },
+    {
+      "id": "J",
+      "x": -1.257385788770413,
+      "y": 1.4359591059004482
+    },
+    {
+      "id": "K",
+      "x": -0.6485462654184169,
+      "y": 2.0563474137391706
+    },
+    {
+      "id": "L",
+      "x": -0.028170793140327575,
+      "y": 1.4474994695424825
+    },
+    {
+      "id": "M",
+      "x": -0.6370131287400008,
+      "y": 0.8271152243473531
+    },
+    {
+      "id": "N",
+      "x": -0.4285482611966207,
+      "y": 1.039558855425837
+    },
+    {
+      "id": "O",
+      "x": 0.18033526249621126,
+      "y": 1.6599261162413157
+    },
+    {
+      "id": "P",
+      "x": 0.8007013580433918,
+      "y": 1.0510473974545536
+    },
+    {
+      "id": "Q",
+      "x": 0.19181268326014853,
+      "y": 0.43068655851992854
+    },
+    {
+      "id": "R",
+      "x": 0.6035711626179735,
+      "y": -0.39064622110359215
+    },
+    {
+      "id": "S",
+      "x": 1.2124857495041765,
+      "y": 0.229666090109859
+    },
+    {
+      "id": "T",
+      "x": 0.5921234101666214,
+      "y": 0.838524177741496
+    },
+    {
+      "id": "U",
+      "x": -0.01678639255046543,
+      "y": 0.21821049734585038
+    },
+    {
+      "id": "V",
+      "x": -0.8407473581333277,
+      "y": -0.27114732008090187
+    },
+    {
+      "id": "W",
+      "x": -0.9287675812641998,
+      "y": 0.5936495772679107
+    },
+    {
+      "id": "X",
+      "x": -0.06397278165848665,
+      "y": 0.6817265986767423
+    },
+    {
+      "id": "Y",
+      "x": 0.024046572680680455,
+      "y": -0.1830718727716899
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785355638991",
+      "type": "polygon",
+      "points": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785355644430",
+      "type": "circle",
+      "points": [
+        "E",
+        "F"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785355911555",
+      "type": "polygon",
+      "points": [
+        "J",
+        "K",
+        "L",
+        "M"
+      ],
+      "color": "#26a880"
+    },
+    {
+      "id": "shape-1785355930356",
+      "type": "polygon",
+      "points": [
+        "N",
+        "O",
+        "P",
+        "Q"
+      ],
+      "color": "#f0a11b"
+    },
+    {
+      "id": "shape-1785355974389",
+      "type": "polygon",
+      "points": [
+        "R",
+        "S",
+        "T",
+        "U"
+      ],
+      "color": "#8c5ad7"
+    },
+    {
+      "id": "shape-1785356066694",
+      "type": "polygon",
+      "points": [
+        "V",
+        "W",
+        "X",
+        "Y"
+      ],
+      "color": "#5b6df9"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785355638991,
+      "expression": "AB = BC = CD = DA",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785355638992,
+      "expression": "AB ∥ CD",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785355638993,
+      "expression": "BC ∥ DA",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785355638994,
+      "expression": "∠DAB = 90°",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785355638995,
+      "expression": "distinct(ABCD)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785355638996,
+      "expression": "AB ∩ CD = ∅",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785355638997,
+      "expression": "BC ∩ DA = ∅",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785355654307,
+      "expression": "F = circle(EF) ∩ AD",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785355650237,
+      "expression": "G = circle(EF) ∩ AB",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785355652769,
+      "expression": "H = circle(EF) ∩ BC",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785355654306,
+      "expression": "I = circle(EF) ∩ CD",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785355654308,
+      "expression": "EF ⟂ AD",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785355654309,
+      "expression": "EG ⟂ AB",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785355654310,
+      "expression": "EH ⟂ BC",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785355654311,
+      "expression": "EI ⟂ CD",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785355903044,
+      "expression": "J ∈ circle(EF)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785355904207,
+      "expression": "K ∈ circle(EF)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785355911555,
+      "expression": "JK = KL = LM = MJ",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785355911556,
+      "expression": "JK ∥ LM",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785355911557,
+      "expression": "KL ∥ MJ",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785355911558,
+      "expression": "∠MJK = 90°",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785355911559,
+      "expression": "distinct(JKLM)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785355911560,
+      "expression": "JK ∩ LM = ∅",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785355911561,
+      "expression": "KL ∩ MJ = ∅",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785355918728,
+      "expression": "N ∈ LM",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785355930356,
+      "expression": "NO = OP = PQ = QN",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785355930357,
+      "expression": "NO ∥ PQ",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785355930358,
+      "expression": "OP ∥ QN",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785355930359,
+      "expression": "∠QNO = 90°",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785355930360,
+      "expression": "distinct(NOPQ)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785355930361,
+      "expression": "NO ∩ PQ = ∅",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785355930362,
+      "expression": "OP ∩ QN = ∅",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785355930363,
+      "expression": "L ∈ NO",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785355959065,
+      "expression": "R ∈ circle(EF)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785355960086,
+      "expression": "S ∈ circle(EF)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785355964670,
+      "expression": "T ∈ PQ",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785355974389,
+      "expression": "RS = ST = TU = UR",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785355974390,
+      "expression": "RS ∥ TU",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785355974391,
+      "expression": "ST ∥ UR",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785355974392,
+      "expression": "∠URS = 90°",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785355974393,
+      "expression": "distinct(RSTU)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785355974394,
+      "expression": "RS ∩ TU = ∅",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785355974395,
+      "expression": "ST ∩ UR = ∅",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785355974396,
+      "expression": "S(RSTU) = S(JKLM) = S(NOPQ) = S(VWXY)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785355974397,
+      "expression": "Q ∈ TU",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785356053863,
+      "expression": "V ∈ circle(EF)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785356066694,
+      "expression": "VW = WX = XY = YV",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785356066695,
+      "expression": "VW ∥ XY",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785356066696,
+      "expression": "WX ∥ YV",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785356066697,
+      "expression": "∠YVW = 90°",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785356066698,
+      "expression": "distinct(VWXY)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785356066699,
+      "expression": "VW ∩ XY = ∅",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785356066700,
+      "expression": "WX ∩ YV = ∅",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785356066701,
+      "expression": "U ∈ XY",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785356066702,
+      "expression": "X ∈ NQ",
+      "enabled": true,
+      "color": "#8c5ad7"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785356066703,
+      "expression": "(S(RSTU) + S(JKLM) + S(NOPQ) + S(VWXY)) / S(ABCD) = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "0.000001",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "view": {
+    "x": -4.0441240500231,
+    "y": 204.45586435845976,
+    "scale": 201.1528553059696
+  }
+}

@@ -98,6 +98,8 @@ test("circular tools and localized modules are present", async () => {
     settings,
     tools,
     solver,
+    analyticSolver,
+    exactValue,
     expressions,
     geometry,
     conditions,
@@ -108,6 +110,7 @@ test("circular tools and localized modules are present", async () => {
     objects,
     hitTesting,
     domain,
+    projectMigrations,
     projectState,
     examples,
     editorGroups,
@@ -120,6 +123,8 @@ test("circular tools and localized modules are present", async () => {
     readFile(new URL("../app/settings-dialog.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/tools.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/solver.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/analytic-solver.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/exact-value.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/expressions.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/geometry.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/conditions-panel.tsx", import.meta.url), "utf8"),
@@ -130,6 +135,7 @@ test("circular tools and localized modules are present", async () => {
     readFile(new URL("../app/objects-section.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/canvas-hit-testing.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/domain.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/project-migrations.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/project-state.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/examples.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/editor-groups.tsx", import.meta.url), "utf8"),
@@ -144,6 +150,23 @@ test("circular tools and localized modules are present", async () => {
         "quarter-circle-perpendiculars",
         "rectangle-diagonal-angle",
         "overturned-square",
+        "doc-oct",
+        "tangent-circles-25",
+        "triangle-altitudes-24",
+        "equilateral-circle-26",
+        "green-vs-blue",
+        "semicircle-turducken",
+        "two-circles-tale",
+        "washing-machine",
+        "one-fact",
+        "all-in-square",
+        "isosceles-everywhere",
+        "t1-angle-sum",
+        "isosceles-altitude",
+        "median-area-t2",
+        "inconsistent-altitude-t3",
+        "right-triangle-altitude-t4",
+        "intersecting-sectors-t5",
       ].map((name) =>
         readFile(
           new URL(`../public/examples/${name}.json`, import.meta.url),
@@ -162,11 +185,26 @@ test("circular tools and localized modules are present", async () => {
     header,
   ].join("\n");
   assert.ok(page.split(/\r?\n/).length < 2100);
-  assert.match(tools, /id: "majorSector"/);
+  assert.doesNotMatch(tools, /id: "majorSector"/);
+  assert.match(tools, /arc start and clockwise end/);
   assert.match(tools, /id: "circularSegment"/);
+  assert.match(tools, /id: "intersectionPoint"/);
+  assert.match(tools, /id: "crossedPolygon"/);
   assert.match(tools, /Circular segment/);
   assert.match(geometry, /resolveArcEnd/);
+  assert.match(geometry, /ellipseGeometry/);
+  assert.match(renderer, /-geometry\.rotation/);
+  assert.match(geometry, /geometryContainmentResidual/);
+  assert.match(geometry, /geometryIntersectionArea/);
+  assert.match(geometry, /linearIntersection/);
   assert.match(expressions, /parseIntersectionConstraint/);
+  assert.match(expressions, /export function locateObjectIntersections/);
+  assert.match(expressions, /parseIntersectionPointSet/);
+  assert.match(expressions, /parseContainmentConstraint/);
+  assert.match(expressions, /constraint\.kind === "convex"/);
+  assert.match(expressions, /OBJECTDISTANCE_/);
+  assert.match(expressions, /distanceBetweenObjects/);
+  assert.match(expressions, /definitionSources/);
   assert.match(editorModules, /H = EG ∩ DF/);
   assert.match(expressions, /normalizeUnknownExpression/);
   assert.match(header, /Clear completely/);
@@ -174,6 +212,7 @@ test("circular tools and localized modules are present", async () => {
   assert.match(conditions, /examples-trigger/);
   assert.match(editorModules, /onEllipse/);
   assert.match(editorModules, /onArc/);
+  assert.match(interactions, /locateObjectIntersections/);
   assert.match(geometry, /projectPointToArc/);
   assert.match(interactions, /cycleOnClick/);
   assert.match(interactions, /cycleCandidates/);
@@ -217,11 +256,30 @@ test("circular tools and localized modules are present", async () => {
   assert.match(projectState, /typeof value\.visible/);
   assert.match(projectState, /isImportedGroup/);
   assert.match(projectState, /groups: snapshot\.groups/);
+  assert.match(projectMigrations, /PROJECT_MIGRATIONS/);
+  assert.match(projectMigrations, /migrateLegacyIntersectionExpression/);
   assert.match(examples, /fetch\(new URL/);
   assert.match(examples, /parseImportedProject/);
   assert.match(examples, /quarter-circle-perpendiculars/);
   assert.match(examples, /rectangle-diagonal-angle/);
   assert.match(examples, /overturned-square/);
+  assert.match(examples, /doc-oct/);
+  assert.match(examples, /tangent-circles-25/);
+  assert.match(examples, /triangle-altitudes-24/);
+  assert.match(examples, /equilateral-circle-26/);
+  assert.match(examples, /green-vs-blue/);
+  assert.match(examples, /semicircle-turducken/);
+  assert.match(examples, /two-circles-tale/);
+  assert.match(examples, /washing-machine/);
+  assert.match(examples, /one-fact/);
+  assert.match(examples, /all-in-square/);
+  assert.match(examples, /isosceles-everywhere/);
+  assert.match(examples, /t1-angle-sum/);
+  assert.match(examples, /isosceles-altitude/);
+  assert.match(examples, /median-area-t2/);
+  assert.match(examples, /inconsistent-altitude-t3/);
+  assert.match(examples, /right-triangle-altitude-t4/);
+  assert.match(examples, /intersecting-sectors-t5/);
   assert.doesNotMatch(examples, /snapshot:/);
   assert.match(foundations, /\.object-row:focus-within/);
   assert.match(foundations, /\.editor-group-header/);
@@ -234,12 +292,20 @@ test("circular tools and localized modules are present", async () => {
     assert.ok(Array.isArray(project.points));
     assert.ok(Array.isArray(project.known));
   });
+  assert.ok(
+    exampleFiles.some(
+      (source) =>
+        source.includes("E ∈ arc(ABC)") && source.includes("G ∈ arc(ABC)"),
+    ),
+  );
   assert.match(expressions, /fixedLineAnchorIds/);
   assert.match(page, /EMPTY_PROJECT_TITLE/);
   assert.match(renderer, /shape\.type === "sector"/);
   assert.match(header, /clear-button/);
   assert.match(page, /activeCanvasPointersRef/);
   assert.match(page, /pinchGestureRef/);
+  assert.match(page, /const MIN_VIEW_SCALE = 0\.1/);
+  assert.match(page, /const MAX_VIEW_SCALE = 100_000/);
   assert.match(page, /solverMaxIterationsInput/);
   assert.match(page, /solverTimeLimitMsInput/);
   assert.match(conditions, /focusExpressionAcrossSections/);
@@ -271,11 +337,19 @@ test("circular tools and localized modules are present", async () => {
   assert.match(settings, /settings-solver-iterations/);
   assert.match(settings, /settings-solver-time-limit/);
   assert.match(settings, /Maximum iterations/);
+  assert.match(settings, /onSolverModeChange/);
+  assert.match(settings, /Analytical/);
   assert.match(settings, /settings-show-area-constraints/);
   assert.match(settings, /Show area constraints/);
   assert.match(solver, /export function solveCoordinates/);
   assert.match(solver, /solveLinearSystem/);
   assert.match(solver, /timeLimitMs/);
+  assert.match(page, /solveAnalytically/);
+  assert.match(page, /solverMode === "analytic"/);
+  assert.match(analyticSolver, /export function solveAnalytically/);
+  assert.match(analyticSolver, /Pythagorean theorem/);
+  assert.match(exactValue, /export function formatExact/);
+  assert.match(exactValue, /sqrt/);
 });
 
 test("polyline, focused constraints and PWA assets are present", async () => {
@@ -305,6 +379,12 @@ test("polyline, focused constraints and PWA assets are present", async () => {
     ]);
 
   assert.match(tools, /toolIds: \["segment", "line", "ray", "polyline"\]/);
+  assert.match(
+    tools,
+    /toolIds: \["polygon", "crossedPolygon", "regularPolygon"\]/,
+  );
+  assert.match(tools, /!regular && !allowSelfIntersections/);
+  assert.match(tools, /expressions\.push\(`convex\(/);
   assert.match(tools, /toolIds: \["setLength", "setAngle", "setArea"\]/);
   assert.match(tools, /id: "quadrilateral"/);
   assert.match(tools, /id: "segment"[\s\S]*?shortcut: "1"/);
@@ -322,6 +402,10 @@ test("polyline, focused constraints and PWA assets are present", async () => {
       tools.indexOf('{ kind: "group", id: "polygons" }'),
   );
   assert.match(interactions, /activeTool === "polyline"/);
+  assert.match(interactions, /activeTool === "intersectionPoint"/);
+  assert.match(interactions, /findIntersectionObjectsAt/);
+  assert.match(interactions, /locateObjectIntersections/);
+  assert.match(interactions, /resetPendingIntersection/);
   assert.match(interactions, /activeTool === "quadrilateral"/);
   assert.match(interactions, /onAddFocusedKnown/);
   assert.match(renderer, /shape\.type === "polyline"/);

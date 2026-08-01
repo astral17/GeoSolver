@@ -23,9 +23,9 @@ const HELP_TOOL_GROUPS: Record<string, string> = {
   circle: "Окружности",
   ellipse: "Окружности",
   sector: "Окружности",
-  majorSector: "Окружности",
   circularSegment: "Окружности",
   polygon: "Многоугольники",
+  crossedPolygon: "Многоугольники",
   regularPolygon: "Многоугольники",
   triangle: "Треугольники",
   rightTriangle: "Треугольники",
@@ -50,9 +50,9 @@ const HELP_TOOL_GROUPS_EN: Record<string, string> = {
   circle: "Circles",
   ellipse: "Circles",
   sector: "Circles",
-  majorSector: "Circles",
   circularSegment: "Circles",
   polygon: "Polygons",
+  crossedPolygon: "Polygons",
   regularPolygon: "Polygons",
   triangle: "Triangles",
   rightTriangle: "Triangles",
@@ -200,7 +200,8 @@ export function HelpDialog({
                 Название проекта редактируется прямо в шапке и сохраняется
                 автоматически. Команды «Импорт» и «Экспорт» в настройках
                 переносят проект через JSON-файл; для импорта файл также можно
-                перетащить в окно.
+                перетащить в окно. Текущая версия формата — 2; старые файлы
+                мигрируют автоматически, включая прежнюю семантику пересечений.
               </div>
               <div className="help-callout theme-help-callout">
                 Светлая и тёмная темы переключаются в настройках. Выбор
@@ -312,6 +313,15 @@ export function HelpDialog({
                 нажатием на выбранную вершину. Для удаления нескольких объектов
                 сначала выделите их рамкой.
               </p>
+              <p>
+                Эллипс задаётся двумя фокусами и третьей точкой на его границе.
+                Инструмент точки пересечения создаёт точку одним кликом рядом с
+                двумя границами — включая линии, окружности, эллипсы, секторы и
+                сегменты. Если объекты находятся далеко друг от друга, выберите
+                их последовательно двумя кликами. Сектор всегда идёт от первого
+                радиуса ко второму по часовой стрелке; перестановка крайних точек
+                выбирает дополнительный сектор.
+              </p>
             </section>
 
             <section id="help-constraints" className="help-section">
@@ -329,6 +339,10 @@ export function HelpDialog({
                 <HelpExample code="AB = 5" text="фиксированная длина" />
                 <HelpExample code="∠ABC = 60°" text="величина угла" />
                 <HelpExample code="S(ABCD) = 12" text="площадь многоугольника" />
+                <HelpExample
+                  code="S(ABCD ∩ EFGH) = 5"
+                  text="площадь общей области двух фигур"
+                />
                 <HelpExample code="AB ∥ CD" text="параллельные направления" />
                 <HelpExample code="AB ⟂ CD" text="перпендикулярность" />
                 <HelpExample code="A ≠ B" text="различные точки" />
@@ -341,12 +355,36 @@ export function HelpDialog({
                   text="отрезки не пересекаются"
                 />
                 <HelpExample
-                  code="H = EG ∩ DF"
-                  text="H — пересечение двух отрезков"
+                  code="line(AB) ∩ circle(CD) = ∅"
+                  text="прямая не пересекает окружность"
                 />
                 <HelpExample
-                  code="H = line(EG) ∩ circle(OA)"
-                  text="пересечение прямой и окружности"
+                  code="distance(line(AB), circle(CD)) = 2"
+                  text="расстояние между объектами"
+                />
+                <HelpExample
+                  code="convex(ABCD)"
+                  text="вершины образуют выпуклый многоугольник"
+                />
+                <HelpExample
+                  code="inside(ABC, DEFG)"
+                  text="треугольник ABC находится внутри DEFG"
+                />
+                <HelpExample
+                  code="inside(A, BCD)"
+                  text="точка A находится внутри треугольника BCD"
+                />
+                <HelpExample
+                  code="H = EG ∩ DF"
+                  text="H — единственная точка пересечения"
+                />
+                <HelpExample
+                  code="H ∈ line(EG) ∩ circle(OA)"
+                  text="H принадлежит пересечению; другие точки допустимы"
+                />
+                <HelpExample
+                  code="{H, I} = circle(OA) ∩ circle(BC)"
+                  text="полное множество точек пересечения"
                 />
                 <HelpExample code="D ∈ AB" text="точка на отрезке" />
                 <HelpExample code="D ∈ line(AB)" text="точка на прямой" />
@@ -358,6 +396,16 @@ export function HelpDialog({
                   text="точка на эллипсе"
                 />
               </div>
+              <p>
+                Выражение слева и справа от <code>∩</code> задаёт объекты, а
+                фигурные скобки — множество точек. Равенство требует, чтобы
+                перечисленные точки были <em>всем</em> пересечением: запись{" "}
+                <code>H = EG ∩ DF</code> является сокращением{" "}
+                <code>{"{H}"} = EG ∩ DF</code>. Принадлежность{" "}
+                <code>{"{H, I}"} ∈ … ∩ …</code> не запрещает дополнительные
+                точки. Пустое множество можно писать с любой стороны:
+                <code> ∅ = AB ∩ CD</code> или <code>AB ∩ CD = ∅</code>.
+              </p>
               <div className="help-callout warning">
                 Если строка ссылается на удалённую точку, GeoSolver покажет
                 ошибку ссылки и не будет считать условие корректным.
@@ -372,6 +420,14 @@ export function HelpDialog({
                 вершиной посередине. Поддерживаются <code>+ − × ÷ ^</code>,
                 скобки, <code>sqrt</code>, <code>abs</code>,{" "}
                 <code>sin</code>, <code>cos</code> и <code>tan</code>.
+              </p>
+              <p>
+                Функция <code>distance</code> вычисляет минимальное расстояние
+                между точками, отрезками, прямыми, лучами, окружностями,
+                эллипсами и замкнутыми фигурами. Например:{" "}
+                <code>distance(A, line(BC))</code> или{" "}
+                <code>distance(polygon(ABC), circle(DE))</code>. При
+                пересечении результат равен нулю.
               </p>
               <div className="help-example-grid">
                 <HelpExample code="AB + BC = AC" text="формула длин" />
@@ -428,8 +484,22 @@ export function HelpDialog({
                       <code>S(segment(ABC))</code>,{" "}
                       <code>S(ellipse(ABC))</code> — площади круглых фигур;
                     </li>
+                    <li>
+                      <code>S(ABCD ∩ EFGH)</code> или{" "}
+                      <code>S(circle(AB) ∩ polygon(CDEF))</code> — площадь
+                      пересечения фигур;
+                    </li>
                     <li><code>AB + BC</code> — значение формулы.</li>
                   </ul>
+                  <p>
+                    Цель без <code>?</code> может быть утверждением:{" "}
+                    <code>AB = BC</code>, <code>∠ABC = ∠DEF</code>,{" "}
+                    <code>AB ⟂ CD</code>, <code>AB ∥ CD</code> или{" "}
+                    <code>AB &lt; BC</code>. Аналитический режим пытается
+                    доказать либо опровергнуть её. Численный контрпример может
+                    опровергнуть утверждение, но совпадение в одном найденном
+                    чертеже само по себе доказательством не считается.
+                  </p>
                 </div>
                 <div>
                   <h3>Измерения</h3>
@@ -478,13 +548,14 @@ export function HelpDialog({
             </section>
 
             <section id="help-solver" className="help-section">
-              <span className="help-kicker">08 · ЧИСЛЕННЫЙ ПОИСК</span>
+              <span className="help-kicker">08 · ДВА РЕЖИМА</span>
               <h2>Как работает решатель</h2>
               <p>
-                Координаты точек становятся переменными, а распознанные условия
-                — системой уравнений. Решатель запускает несколько стартовых
-                приближений и минимизирует общую невязку адаптивным методом
-                наименьших квадратов.
+                Режим выбирается в настройках. Численный решатель подходит для
+                общей системы ограничений и перемещает точки. Аналитический
+                применяет поддерживаемые теоремы, сохраняет кратчайшую найденную
+                цепочку, возвращает точные выражения вроде{" "}
+                <code>3*sqrt(2)/4</code>, а затем численно перестраивает чертёж.
               </p>
               <div className="help-columns">
                 <div>
@@ -495,16 +566,22 @@ export function HelpDialog({
                     Меньшее значение требует более точного совпадения, но может
                     увеличить время поиска. Эпсилон находится в настройках.
                     Там же задаются максимальное количество итераций и
-                    временной лимит; при достижении лимита показывается лучшее
-                    найденное приближение.
+                    временной лимит. В аналитическом режиме этот лимит общий
+                    для точного вывода и численной перестройки чертежа; при его
+                    достижении сохраняется уже найденный результат.
                   </p>
                 </div>
                 <div>
-                  <h3>Ближайшее решение</h3>
+                  <h3>Область аналитики</h3>
                   <p>
-                    Если все условия одновременно выполнить не удалось,
-                    GeoSolver показывает лучший найденный чертёж, невязку и
-                    наиболее противоречивые строки.
+                    Поддерживаются равенства и формулы, коллинеарность и перенос
+                    перпендикулярности, теоремы Пифагора и косинусов, точные значения
+                    тригонометрии для стандартных углов, свойства квадратов,
+                    прямоугольников и правильных многоугольников, касающиеся
+                    окружности, повороты равносторонних конструкций и разбиения
+                    площадей. Если выполнена только часть целей, решатель
+                    отдельно перечисляет оставшиеся; неединственный ответ не
+                    выдаётся за точный.
                   </p>
                 </div>
               </div>
@@ -643,6 +720,8 @@ function EnglishHelpDialog({
               <div className="help-callout">
                 Data stays in your browser. Each browser tab has its own
                 drawing. Project JSON import and export are in Settings.
+                Format version 3 automatically migrates older intersection
+                constraints.
               </div>
             </section>
 
@@ -732,14 +811,22 @@ function EnglishHelpDialog({
                 </table>
               </div>
               <p>
-                A sector follows the minor arc; Major sector explicitly draws
-                an angle greater than 180°. Circular segment draws the region
+                A sector always follows the clockwise sweep from the first
+                radius to the second. Swap those two points to select the
+                complementary sector. A circular segment draws the region
                 between a chord and its arc.
               </p>
               <p>
                 A polyline and the Set area tool finish when you click the last
                 selected point again. A polygon closes when you click one of
                 its selected vertices.
+              </p>
+              <p>
+                An ellipse is defined by two foci and a third point on its
+                boundary. The Intersection point tool creates a point with one
+                click near two boundaries, including lines, circles, ellipses,
+                sectors, and circular segments; use two successive clicks when
+                the objects are far apart.
               </p>
             </section>
 
@@ -756,17 +843,42 @@ function EnglishHelpDialog({
                 <HelpExample code="AB = 5" text="fixed length" />
                 <HelpExample code="∠ABC = 60°" text="angle value" />
                 <HelpExample code="S(ABCD) = 12" text="polygon area" />
+                <HelpExample
+                  code="S(ABCD ∩ EFGH) = 5"
+                  text="area shared by two figures"
+                />
                 <HelpExample code="AB ∥ CD" text="parallel directions" />
                 <HelpExample code="AB ⟂ CD" text="perpendicular directions" />
                 <HelpExample code="distinct(ABCD)" text="distinct points" />
                 <HelpExample code="AB ∩ CD = ∅" text="no intersection" />
                 <HelpExample
-                  code="H = EG ∩ DF"
-                  text="H is the intersection of two segments"
+                  code="line(AB) ∩ circle(CD) = ∅"
+                  text="line does not intersect a circle"
                 />
                 <HelpExample
-                  code="H = line(EG) ∩ circle(OA)"
-                  text="line-circle intersection"
+                  code="distance(line(AB), circle(CD)) = 2"
+                  text="distance between objects"
+                />
+                <HelpExample code="convex(ABCD)" text="convex polygon" />
+                <HelpExample
+                  code="inside(ABC, DEFG)"
+                  text="triangle ABC lies inside DEFG"
+                />
+                <HelpExample
+                  code="inside(A, BCD)"
+                  text="point A lies inside triangle BCD"
+                />
+                <HelpExample
+                  code="H = EG ∩ DF"
+                  text="H is the only intersection point"
+                />
+                <HelpExample
+                  code="H ∈ line(EG) ∩ circle(OA)"
+                  text="H belongs to the intersection; more points are allowed"
+                />
+                <HelpExample
+                  code="{H, I} = circle(OA) ∩ circle(BC)"
+                  text="the complete intersection set"
                 />
                 <HelpExample code="D ∈ circle(OA)" text="point on a circle" />
                 <HelpExample code="D ∈ arc(OAB)" text="point on a visible arc" />
@@ -775,6 +887,13 @@ function EnglishHelpDialog({
                   text="point on an ellipse"
                 />
               </div>
+              <p>
+                Equality specifies the complete intersection set. Thus{" "}
+                <code>H = EG ∩ DF</code> abbreviates{" "}
+                <code>{"{H}"} = EG ∩ DF</code>. Membership such as{" "}
+                <code>{"{H, I}"} ∈ … ∩ …</code> permits additional points.
+                The empty set is accepted on either side of equality.
+              </p>
               <div className="help-callout warning">
                 A constraint that references a deleted point is marked as an
                 invalid reference and is not treated as valid.
@@ -788,6 +907,13 @@ function EnglishHelpDialog({
                 Expressions support <code>+ − × ÷ ^</code>, parentheses,{" "}
                 <code>sqrt</code>, <code>abs</code>, trigonometric functions
                 and chained equalities or comparisons.
+              </p>
+              <p>
+                <code>distance</code> returns the minimum distance between
+                points, segments, lines, rays, circles, ellipses and closed
+                shapes. Examples: <code>distance(A, line(BC))</code> and{" "}
+                <code>distance(polygon(ABC), circle(DE))</code>. Intersecting
+                objects have distance zero.
               </p>
               <div className="help-example-grid">
                 <HelpExample code="AB + BC = AC" text="length formula" />
@@ -816,6 +942,13 @@ function EnglishHelpDialog({
                 targets or points. For area, click an empty part of a shape
                 boundary to detect it automatically, or click existing points
                 to build and close an exact vertex list manually.
+                Use <code>S(ABCD ∩ EFGH)</code> or{" "}
+                <code>S(circle(AB) ∩ polygon(CDEF))</code> for the overlap area.
+                A target without <code>?</code> may be a proposition such as{" "}
+                <code>AB = BC</code>, <code>∠ABC = ∠DEF</code>, or{" "}
+                <code>AB ⟂ CD</code>. Analytical mode tries to prove or refute
+                it. A numerical counterexample can refute it, while one matching
+                numerical drawing is not treated as a proof.
               </p>
             </section>
 
@@ -839,19 +972,25 @@ function EnglishHelpDialog({
             </section>
 
             <section id="help-solver-en" className="help-section">
-              <span className="help-kicker">08 · NUMERICAL SEARCH</span>
+              <span className="help-kicker">08 · TWO MODES</span>
               <h2>How the solver works</h2>
               <p>
-                Point coordinates become variables and recognized conditions
-                become residual equations. Several starting approximations are
-                optimized with adaptive least squares. The default epsilon is{" "}
-                <code>1e-6</code>. Settings also contain iteration and time
-                limits; the best approximation is returned when a limit is
-                reached.
+                Select the solver in Settings. Numerical mode searches point
+                coordinates with adaptive least squares and can return the
+                nearest drawing. Analytical mode applies supported theorems,
+                returns exact expressions such as <code>3*sqrt(2)/4</code>, shows
+                its shortest found derivation, and then rebuilds drawing
+                coordinates numerically. Its scope includes equations,
+                collinearity, transferred perpendicularity, standard-angle
+                trigonometry, the law of cosines, squares, regular polygons, tangent circles,
+                equilateral rotations, area dissections, and basic areas and
+                perimeters. The time limit in Settings covers both exact
+                inference and numerical drawing reconstruction. Underdetermined
+                values are not presented as exact.
               </p>
               <div className="help-callout">
-                If all constraints cannot be satisfied, GeoSolver shows the
-                nearest solution, its residual and the most conflicting rows.
+                If analytical mode has no applicable theorem, it reports the
+                target as undetermined instead of inventing an approximate proof.
               </div>
             </section>
 

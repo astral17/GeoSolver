@@ -118,6 +118,10 @@ export function solveCoordinates(
   let best = [...baseline];
   let bestErrors = errorsFor(best);
   let bestScore = scoreFor(bestErrors);
+  let stableBest = [...baseline];
+  let stableBestErrors = [...bestErrors];
+  let stableBestScore = bestScore;
+  let stableSelectionScore = bestScore;
   let iterations = 0;
   let timedOut = false;
   // The public tolerance decides whether a system is acceptable. Keep
@@ -144,6 +148,36 @@ export function solveCoordinates(
     Math.max(...ys) - Math.min(...ys),
     1,
   );
+  const selectionScoreFor = (values: number[], score: number) => {
+    const normalizedDriftSquared =
+      values.reduce((sum, value, index) => {
+        const normalized = (value - baseline[index]) / span;
+        return sum + normalized * normalized;
+      }, 0) / Math.max(values.length, 1);
+    // In an inconsistent scale-dependent system, relative residuals can
+    // approach zero only by sending the whole drawing towards infinity.
+    // Keep exact finite solutions eligible, but choose a nearby Pareto point
+    // for the "nearest result" instead of returning an exploded drawing.
+    return score * (1 + normalizedDriftSquared) ** 4;
+  };
+  const considerCandidate = (
+    values: number[],
+    errors: number[],
+    score: number,
+  ) => {
+    if (score < bestScore) {
+      bestScore = score;
+      best = [...values];
+      bestErrors = [...errors];
+    }
+    const selectionScore = selectionScoreFor(values, score);
+    if (selectionScore < stableSelectionScore) {
+      stableSelectionScore = selectionScore;
+      stableBestScore = score;
+      stableBest = [...values];
+      stableBestErrors = [...errors];
+    }
+  };
   const baselineIterationLimit = Math.max(
     12,
     Math.ceil(maxIterations * (restartCount === 1 ? 1 : 0.65)),
@@ -178,11 +212,7 @@ export function solveCoordinates(
     let damping = restart === 0 ? 1e-3 : 1e-2;
     let rejectedSteps = 0;
 
-    if (localScore < bestScore) {
-      bestScore = localScore;
-      best = [...values];
-      bestErrors = [...errors];
-    }
+    considerCandidate(values, errors, localScore);
 
     for (
       let localIteration = 0;
@@ -268,11 +298,7 @@ export function solveCoordinates(
         localScore = candidateScore;
         damping = Math.max(damping * 0.3, 1e-12);
         rejectedSteps = 0;
-        if (candidateScore < bestScore) {
-          bestScore = candidateScore;
-          best = [...candidate];
-          bestErrors = [...candidateErrors];
-        }
+        considerCandidate(candidate, candidateErrors, candidateScore);
       } else {
         damping = Math.min(damping * 10, 1e14);
         rejectedSteps += 1;
@@ -281,12 +307,16 @@ export function solveCoordinates(
     }
   }
 
-  const solvedMap = unpack(best);
-  const errors = bestErrors.map(Math.abs);
+  const useExactBest = bestScore <= tolerance ** 2;
+  const finalValues = useExactBest ? best : stableBest;
+  const finalErrors = useExactBest ? bestErrors : stableBestErrors;
+  const finalScore = useExactBest ? bestScore : stableBestScore;
+  const solvedMap = unpack(finalValues);
+  const errors = finalErrors.map(Math.abs);
   return {
     points: ids.map((id) => solvedMap.get(id) as SolverPoint),
     errors,
-    residual: rootMeanSquare(errors),
+    residual: Math.sqrt(finalScore),
     elapsed: performance.now() - startedAt,
     iterations,
     timedOut,

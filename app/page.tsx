@@ -22,6 +22,7 @@ import type {
   ParsedConstraint,
   Point,
   Shape,
+  SolverMode,
   SolveResult,
 } from "./domain";
 import {
@@ -35,6 +36,7 @@ import {
   solveNumerically,
   trimNumber,
 } from "./expressions";
+import { solveAnalytically } from "./analytic-solver";
 import {
   angleDegrees,
   distance,
@@ -50,6 +52,10 @@ import { useCanvasInteractions } from "./canvas-interactions";
 import { useCanvasHitTesting } from "./canvas-hit-testing";
 import { AppHeader } from "./app-header";
 import { buildEqualSideMarks } from "./congruence-marks";
+import {
+  CURRENT_PROJECT_FORMAT_VERSION,
+  migrateProjectData,
+} from "./project-migrations";
 import { useObjectEditing } from "./object-editing";
 import { SolverPanel } from "./solver-panel";
 import { expandSymbolCommands } from "./symbol-input";
@@ -62,6 +68,7 @@ import {
   DEFAULT_SOLVER_EPSILON_INPUT,
   DEFAULT_SOLVER_MAX_ITERATIONS,
   DEFAULT_SOLVER_MAX_ITERATIONS_INPUT,
+  DEFAULT_SOLVER_MODE,
   DEFAULT_SOLVER_TIME_LIMIT_MS,
   DEFAULT_SOLVER_TIME_LIMIT_MS_INPUT,
   EMPTY_PROJECT_TITLE,
@@ -89,8 +96,8 @@ import {
   localizeTools,
 } from "./tools";
 
-const MIN_VIEW_SCALE = 8;
-const MAX_VIEW_SCALE = 1200;
+const MIN_VIEW_SCALE = 0.1;
+const MAX_VIEW_SCALE = 100_000;
 const MOBILE_WORKSPACE_QUERY =
   "(max-width: 680px), (max-width: 1000px) and (max-height: 650px) and (orientation: landscape)";
 export default function Home() {
@@ -141,6 +148,9 @@ export default function Home() {
   );
   const [solverTimeLimitMsInput, setSolverTimeLimitMsInput] = useState(
     DEFAULT_SOLVER_TIME_LIMIT_MS_INPUT,
+  );
+  const [solverMode, setSolverMode] = useState<SolverMode>(
+    DEFAULT_SOLVER_MODE,
   );
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
@@ -503,6 +513,7 @@ export default function Home() {
         DEFAULT_SOLVER_MAX_ITERATIONS_INPUT;
       let loadedSolverTimeLimitMs =
         DEFAULT_SOLVER_TIME_LIMIT_MS_INPUT;
+      let loadedSolverMode = DEFAULT_SOLVER_MODE;
 
       try {
         sessionStorage.setItem("geosolver-workspace-v2", workspaceId);
@@ -520,16 +531,18 @@ export default function Home() {
         }
 
         if (saved) {
-          const data = JSON.parse(saved);
+          const data = migrateProjectData(JSON.parse(saved));
           loaded = {
             points: Array.isArray(data.points) ? data.points : loaded.points,
             shapes: Array.isArray(data.shapes) ? data.shapes : loaded.shapes,
             measurements: Array.isArray(data.measurements)
               ? data.measurements
               : loaded.measurements,
-            known: Array.isArray(data.known) ? data.known : loaded.known,
+            known: Array.isArray(data.known)
+              ? (data.known as ExpressionRow[])
+              : loaded.known,
             unknown: Array.isArray(data.unknown)
-              ? data.unknown
+              ? (data.unknown as ExpressionRow[])
               : loaded.unknown,
             groups: Array.isArray(data.groups)
               ? data.groups
@@ -572,6 +585,8 @@ export default function Home() {
               ),
             );
           }
+          loadedSolverMode =
+            data.solverMode === "analytic" ? "analytic" : "numerical";
         }
       } catch {
         // A damaged or unavailable local draft should never block the app.
@@ -587,6 +602,7 @@ export default function Home() {
       setSolverEpsilonInput(loadedSolverEpsilon);
       setSolverMaxIterationsInput(loadedSolverMaxIterations);
       setSolverTimeLimitMsInput(loadedSolverTimeLimitMs);
+      setSolverMode(loadedSolverMode);
       setResult(PENDING_RESULT);
       historyRef.current = {
         past: [],
@@ -666,6 +682,7 @@ export default function Home() {
       localStorage.setItem(
         storageKeyRef.current,
         JSON.stringify({
+          version: CURRENT_PROJECT_FORMAT_VERSION,
           points,
           shapes,
           measurements,
@@ -676,6 +693,7 @@ export default function Home() {
           solverEpsilon: solverEpsilonInput,
           solverMaxIterations: solverMaxIterationsInput,
           solverTimeLimitMs: solverTimeLimitMsInput,
+          solverMode,
         }),
       );
     } catch {
@@ -691,6 +709,7 @@ export default function Home() {
     shapes,
     solverEpsilonInput,
     solverMaxIterationsInput,
+    solverMode,
     solverTimeLimitMsInput,
     unknown,
   ]);
@@ -837,7 +856,12 @@ export default function Home() {
     return () => canvas.removeEventListener("wheel", handleCanvasWheel);
   }, [canvasSize]);
 
-  const { findPointAt, findPointsAt, findObjectAt } = useCanvasHitTesting({
+  const {
+    findPointAt,
+    findPointsAt,
+    findObjectAt,
+    findIntersectionObjectsAt,
+  } = useCanvasHitTesting({
     points,
     shapes,
     screenToWorld,
@@ -903,6 +927,7 @@ export default function Home() {
     handlePointerMove,
     handlePointerUp,
     handlePointerCancel,
+    resetPendingIntersection,
   } = useCanvasInteractions({
     canvasSize,
     activeTool,
@@ -938,6 +963,7 @@ export default function Home() {
     findPointAt,
     findPointsAt,
     findObjectAt,
+    findIntersectionObjectsAt,
     screenToWorld,
     worldToScreen,
     markDirty,
@@ -947,16 +973,17 @@ export default function Home() {
     maxViewScale: MAX_VIEW_SCALE,
   });
 
-  const chooseTool = (tool: ToolId) => {
+  const chooseTool = useCallback((tool: ToolId) => {
     if (toolGroupCloseTimerRef.current !== null) {
       window.clearTimeout(toolGroupCloseTimerRef.current);
       toolGroupCloseTimerRef.current = null;
     }
+    resetPendingIntersection();
     setActiveTool(tool);
     setPendingPoints([]);
     setAddMenu(null);
     setOpenToolGroup(null);
-  };
+  }, [resetPendingIntersection]);
 
   const openToolGroupMenu = useCallback(
     (groupId: ToolGroupId) => {
@@ -1078,16 +1105,28 @@ export default function Home() {
     if (solving) return;
     setSolving(true);
     window.setTimeout(() => {
-      const solved = solveNumerically(
-        points,
-        shapes,
-        known,
-        unknown,
-        solverEpsilon,
-        bareAngleUnit,
-        solverMaxIterations,
-        solverTimeLimitMs,
-      );
+      const solved =
+        solverMode === "analytic"
+          ? solveAnalytically(
+              points,
+              shapes,
+              known,
+              unknown,
+              bareAngleUnit,
+              solverEpsilon,
+              solverMaxIterations,
+              solverTimeLimitMs,
+            )
+          : solveNumerically(
+              points,
+              shapes,
+              known,
+              unknown,
+              solverEpsilon,
+              bareAngleUnit,
+              solverMaxIterations,
+              solverTimeLimitMs,
+            );
       setPoints(solved.points);
       setResult(solved.result);
       setSolving(false);
@@ -1099,6 +1138,7 @@ export default function Home() {
     points,
     solverEpsilon,
     solverMaxIterations,
+    solverMode,
     solverTimeLimitMs,
     shapes,
     solving,
@@ -1154,6 +1194,8 @@ export default function Home() {
       if (openedGroup) {
         if (event.key === "Escape") {
           event.preventDefault();
+          resetPendingIntersection();
+          setPendingPoints([]);
           setOpenToolGroup(null);
           return;
         }
@@ -1188,6 +1230,7 @@ export default function Home() {
         }
       }
       if (event.key === "Escape") {
+        resetPendingIntersection();
         setPendingPoints([]);
         setSelectedPoint(null);
         setSelectedPoints([]);
@@ -1213,11 +1256,13 @@ export default function Home() {
           const nextIndex =
             (toolGroupIndex + 1) % shortcutGroup.toolIds.length;
           setToolGroupIndex(nextIndex);
+          resetPendingIntersection();
           setActiveTool(shortcutGroup.toolIds[nextIndex]);
           setPendingPoints([]);
         } else {
           const activeIndex = shortcutGroup.toolIds.indexOf(activeTool);
           const nextIndex = activeIndex >= 0 ? activeIndex : 0;
+          resetPendingIntersection();
           setActiveTool(shortcutGroup.toolIds[nextIndex]);
           setPendingPoints([]);
           openToolGroupMenu(shortcutGroup.id);
@@ -1236,11 +1281,13 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     activeTool,
+    chooseTool,
     deleteSelected,
     helpOpen,
     openToolGroupMenu,
     openToolGroup,
     redo,
+    resetPendingIntersection,
     runSolver,
     settingsOpen,
     toolGroupIndex,
@@ -1390,7 +1437,7 @@ export default function Home() {
     const data = JSON.stringify(
       {
         format: "geosolver",
-        version: 1,
+        version: CURRENT_PROJECT_FORMAT_VERSION,
         projectTitle: projectTitle.trim() || DEFAULT_PROJECT_TITLE,
         points,
         shapes,
@@ -1401,6 +1448,7 @@ export default function Home() {
         solverEpsilon: solverEpsilonInput,
         solverMaxIterations: solverMaxIterationsInput,
         solverTimeLimitMs: solverTimeLimitMsInput,
+        solverMode,
         view,
       },
       null,
@@ -1437,6 +1485,7 @@ export default function Home() {
       setSolverEpsilonInput(imported.solverEpsilon);
       setSolverMaxIterationsInput(imported.solverMaxIterations);
       setSolverTimeLimitMsInput(imported.solverTimeLimitMs);
+      setSolverMode(imported.solverMode);
       setView(imported.view ?? { x: 35, y: 34, scale: 74 });
       setActiveTool("select");
       setOpenToolGroup(null);
@@ -1881,6 +1930,7 @@ export default function Home() {
           parsedKnown={parsedKnown}
           points={points}
           result={result}
+          solverMode={solverMode}
           solverMaxIterations={solverMaxIterations}
           solverTimeLimitMs={solverTimeLimitMs}
           solving={solving}
@@ -1911,6 +1961,7 @@ export default function Home() {
           showAngles={showAngles}
           showAreaConstraints={showAreaConstraints}
           showToolHint={showToolHint}
+          solverMode={solverMode}
           solverEpsilonInput={solverEpsilonInput}
           solverEpsilonValid={solverEpsilonValid}
           solverMaxIterationsInput={solverMaxIterationsInput}
@@ -1925,6 +1976,10 @@ export default function Home() {
           onShowAnglesChange={setShowAngles}
           onShowAreaConstraintsChange={setShowAreaConstraints}
           onShowToolHintChange={setShowToolHint}
+          onSolverModeChange={(mode) => {
+            setSolverMode(mode);
+            markDirty();
+          }}
           onSolverEpsilonInputChange={(value) => {
             setSolverEpsilonInput(value);
             markDirty();

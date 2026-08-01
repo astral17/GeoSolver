@@ -1,0 +1,45 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "Ортогональная ломаная в окружности",
+  "points": [
+    { "id": "A", "x": -0.266745293527415, "y": 0.33891301508852295 },
+    { "id": "B", "x": 1.2017592056438748, "y": -2.179716480473573 },
+    { "id": "C", "x": -2.785374789088416, "y": -1.1295914840847763 },
+    { "id": "D", "x": -2.7477219671797495, "y": 1.8701722174427446 },
+    { "id": "E", "x": -0.7478794994947299, "y": 1.845070336169841 },
+    { "id": "F", "x": -0.7604304401312917, "y": 0.84514910232732 },
+    { "id": "G", "x": 1.239412027553736, "y": 0.8200472210540166 }
+  ],
+  "shapes": [
+    { "id": "shape-t6-circle", "type": "circle", "points": ["A", "B"], "color": "#5b6df9" },
+    { "id": "shape-t6-cd", "type": "segment", "points": ["C", "D"], "color": "#ef6b62" },
+    { "id": "shape-t6-de", "type": "segment", "points": ["D", "E"], "color": "#26a880" },
+    { "id": "shape-t6-ef", "type": "segment", "points": ["E", "F"], "color": "#f0a11b" },
+    { "id": "shape-t6-fg", "type": "segment", "points": ["F", "G"], "color": "#8c5ad7" },
+    { "id": "shape-t6-gb", "type": "segment", "points": ["G", "B"], "color": "#5b6df9" }
+  ],
+  "measurements": [],
+  "known": [
+    { "id": 1, "expression": "C ∈ circle(AB)", "enabled": true, "color": "#5b6df9" },
+    { "id": 2, "expression": "D ∈ circle(AB)", "enabled": true, "color": "#ef6b62" },
+    { "id": 3, "expression": "∠CDE = 90°", "enabled": true, "color": "#26a880" },
+    { "id": 4, "expression": "∠DEF = 90°", "enabled": true, "color": "#f0a11b" },
+    { "id": 5, "expression": "∠EFG = 90°", "enabled": true, "color": "#8c5ad7" },
+    { "id": 6, "expression": "∠FGB = 90°", "enabled": true, "color": "#5b6df9" },
+    { "id": 7, "expression": "CD = 3", "enabled": true, "color": "#ef6b62" },
+    { "id": 8, "expression": "DE = 2", "enabled": true, "color": "#26a880" },
+    { "id": 9, "expression": "EF = 1", "enabled": true, "color": "#f0a11b" },
+    { "id": 10, "expression": "FG = 2", "enabled": true, "color": "#8c5ad7" },
+    { "id": 11, "expression": "GB = 3", "enabled": true, "color": "#5b6df9" }
+  ],
+  "unknown": [
+    { "id": 12, "expression": "AB = ?", "enabled": true, "color": "#5b6df9" }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": { "x": 0, "y": 0, "scale": 74 }
+}

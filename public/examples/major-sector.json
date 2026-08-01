@@ -1,6 +1,6 @@
 {
   "format": "geosolver",
-  "version": 1,
+  "version": 2,
   "projectTitle": "Большой сектор",
   "points": [
     { "id": "O", "x": 0, "y": 0 },

@@ -1,0 +1,52 @@
+{
+  "format": "geosolver",
+  "version": 3,
+  "projectTitle": "25 — касающиеся окружности",
+  "points": [
+    { "id": "A", "x": -0.002715990098031042, "y": -0.0023214209160773935 },
+    { "id": "B", "x": 6.53093226837193, "y": -6.180994997711042 },
+    { "id": "C", "x": -5.81958907069486, "y": 1.736198335293628 },
+    { "id": "D", "x": -8.622045106739927, "y": 2.5611696509464648 },
+    { "id": "E", "x": 2.869950535101266, "y": 1.4513094656779189 },
+    { "id": "F", "x": 8.016688282592586, "y": 4.066298944366762 },
+    { "id": "G", "x": -2.887023147452243, "y": 1.7107280233274236 },
+    { "id": "N", "x": -7.974984462858875, "y": 4.153766697506936 },
+    { "id": "O", "x": -6.674921047177478, "y": 4.533534436431557 },
+    { "id": "P", "x": 1.186726015405699, "y": 6.9665411382875595 },
+    { "id": "Q", "x": 4.2822305514771095, "y": 7.900901102417286 }
+  ],
+  "shapes": [
+    { "id": "circle-ab", "type": "circle", "points": ["A", "B"], "color": "#5b6df9" },
+    { "id": "circle-cd", "type": "circle", "points": ["C", "D"], "color": "#ef6b62" },
+    { "id": "circle-ef", "type": "circle", "points": ["E", "F"], "color": "#26a880" },
+    { "id": "segment-nq", "type": "segment", "points": ["N", "Q"], "color": "#26a880" }
+  ],
+  "measurements": [],
+  "known": [
+    { "id": 1, "expression": "F = Circle(EF) ∩ Circle(AB)", "enabled": true, "color": "#5b6df9" },
+    { "id": 2, "expression": "D = Circle(CD) ∩ Circle(AB)", "enabled": true, "color": "#ef6b62" },
+    { "id": 3, "expression": "G = circle(CD) ∩ Circle(EF)", "enabled": true, "color": "#26a880" },
+    { "id": 4, "expression": "CD = 3", "enabled": true, "color": "#f0a11b" },
+    { "id": 5, "expression": "EF = 6", "enabled": true, "color": "#8c5ad7" },
+    { "id": 6, "expression": "AB = 9", "enabled": true, "color": "#5b6df9" },
+    { "id": 7, "expression": "G ∈ DF", "enabled": false, "color": "#5b6df9" },
+    { "id": 8, "expression": "N ∈ circle(AB)", "enabled": true, "color": "#ef6b62" },
+    { "id": 9, "expression": "O ∈ circle(CD)", "enabled": true, "color": "#26a880" },
+    { "id": 10, "expression": "P ∈ circle(EF)", "enabled": true, "color": "#f0a11b" },
+    { "id": 11, "expression": "Q ∈ circle(AB)", "enabled": true, "color": "#8c5ad7" },
+    { "id": 12, "expression": "O ∈ NQ", "enabled": true, "color": "#5b6df9" },
+    { "id": 13, "expression": "P ∈ NQ", "enabled": true, "color": "#ef6b62" },
+    { "id": 14, "expression": "CO ⟂ NQ", "enabled": true, "color": "#26a880" },
+    { "id": 15, "expression": "EP ⟂ NQ", "enabled": true, "color": "#f0a11b" },
+    { "id": 16, "expression": "A = (0; 0)", "enabled": true, "color": "#8c5ad7" },
+    { "id": 17, "expression": "Circle(CD) ∩ Circle(AB) = D", "enabled": true, "color": "#26a880" }
+  ],
+  "unknown": [
+    { "id": 18, "expression": "NQ = ?", "enabled": true, "color": "#5b6df9" }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "numerical"
+}

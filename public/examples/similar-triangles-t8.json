@@ -1,0 +1,35 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "Подобные треугольники на сторонах",
+  "points": [
+    { "id": "A", "x": -7.813083925627308, "y": -16.68373159610938 },
+    { "id": "B", "x": 2.844611477688776, "y": 5.930722381158584 },
+    { "id": "C", "x": 17.82194173783809, "y": -1.1002320137383326 },
+    { "id": "M", "x": -1.4184666836383375, "y": -3.1150592100232646 },
+    { "id": "N", "x": 8.83554358167391, "y": 3.1183406230437813 }
+  ],
+  "shapes": [
+    { "id": "shape-t8-abc", "type": "polygon", "points": ["A", "B", "C"], "color": "#5b6df9" },
+    { "id": "shape-t8-mn", "type": "segment", "points": ["M", "N"], "color": "#ef6b62" }
+  ],
+  "measurements": [],
+  "known": [
+    { "id": 1, "expression": "distinct(ABC)", "enabled": true, "color": "#5b6df9" },
+    { "id": 2, "expression": "M ∈ AB", "enabled": true, "color": "#ef6b62" },
+    { "id": 3, "expression": "N ∈ BC", "enabled": true, "color": "#26a880" },
+    { "id": 4, "expression": "∠BMN = ∠BAC", "enabled": true, "color": "#f0a11b" },
+    { "id": 5, "expression": "MN = 12", "enabled": true, "color": "#8c5ad7" },
+    { "id": 6, "expression": "AC = 30", "enabled": true, "color": "#5b6df9" },
+    { "id": 7, "expression": "AB = 25", "enabled": true, "color": "#ef6b62" }
+  ],
+  "unknown": [
+    { "id": 8, "expression": "AM = ?", "enabled": true, "color": "#5b6df9" }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": { "x": -50.27856974595289, "y": -123.89037496960803, "scale": 24.632460193657877 }
+}

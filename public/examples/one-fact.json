@@ -1,0 +1,194 @@
+{
+  "format": "geosolver",
+  "version": 1,
+  "projectTitle": "Только один факт",
+  "points": [
+    {
+      "id": "A",
+      "x": -2.591144499163078,
+      "y": -2.571551462365116
+    },
+    {
+      "id": "B",
+      "x": -3.413891441852624,
+      "y": 1.3431933050827856
+    },
+    {
+      "id": "C",
+      "x": 0.5008533282495194,
+      "y": 2.165940250443483
+    },
+    {
+      "id": "D",
+      "x": 1.3236002708972736,
+      "y": -1.7488045170782085
+    },
+    {
+      "id": "E",
+      "x": -3.002517974895628,
+      "y": -0.6141790773566808
+    },
+    {
+      "id": "G",
+      "x": -0.5558024926230483,
+      "y": -0.09996223770123613
+    },
+    {
+      "id": "F",
+      "x": 0.9084668306992711,
+      "y": 0.22645835113516585
+    },
+    {
+      "id": "H",
+      "x": 1.887087606232442,
+      "y": 0.4321313385006717
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785355175338",
+      "type": "polygon",
+      "points": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785355206548",
+      "type": "circle",
+      "points": [
+        "G",
+        "E"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785355338160",
+      "type": "segment",
+      "points": [
+        "F",
+        "H"
+      ],
+      "color": "#26a880"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785355175338,
+      "expression": "AB = BC = CD = DA",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785355175339,
+      "expression": "AB ∥ CD",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785355175340,
+      "expression": "BC ∥ DA",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785355175341,
+      "expression": "∠DAB = 90°",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785355175342,
+      "expression": "distinct(ABCD)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785355175343,
+      "expression": "AB ∩ CD = ∅",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785355175344,
+      "expression": "BC ∩ DA = ∅",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785355187989,
+      "expression": "E ∈ AB",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785355189290,
+      "expression": "C ∈ Circle(GE)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785355189291,
+      "expression": "D ∈ Circle(GE)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785355189292,
+      "expression": "GE ⟂ AB",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785355332064,
+      "expression": "F ∈ CD",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785355332065,
+      "expression": "CF = FD",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785355332907,
+      "expression": "H ∈ arc(GCD)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785355332908,
+      "expression": "FH ⟂ CD",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785355332909,
+      "expression": "FH = 1",
+      "enabled": true,
+      "color": "#8c5ad7"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785355332910,
+      "expression": "S(ABCD) = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "0.000001",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "view": {
+    "x": 48.495572466756215,
+    "y": -24.77095221440193,
+    "scale": 81.78264793759796
+  }
+}

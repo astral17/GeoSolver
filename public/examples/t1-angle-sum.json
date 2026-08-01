@@ -1,0 +1,93 @@
+{
+  "format": "geosolver",
+  "version": 3,
+  "projectTitle": "t1",
+  "points": [
+    {
+      "id": "A",
+      "x": -4.750170757920189,
+      "y": -1.777162992438159
+    },
+    {
+      "id": "B",
+      "x": 1.8465014869129166,
+      "y": -2.601958338179069
+    },
+    {
+      "id": "C",
+      "x": -3.2970643515937557,
+      "y": 2.938376938175689
+    },
+    {
+      "id": "D",
+      "x": -2.1449414231164097,
+      "y": -2.102900114201473
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-triangle",
+      "type": "polygon",
+      "points": [
+        "A",
+        "B",
+        "C"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785602263765",
+      "type": "segment",
+      "points": [
+        "C",
+        "D"
+      ],
+      "color": "#ef6b62"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 3,
+      "expression": "∠BAC = 80°",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785602259829,
+      "expression": "D ∈ AB",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785602259830,
+      "expression": "∠CDA = 70°",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785602259831,
+      "expression": "AD + AC = BC",
+      "enabled": true,
+      "color": "#f0a11b"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 4,
+      "expression": "∠CBA = ?",
+      "enabled": true,
+      "color": "#f0a11b"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": {
+    "x": 35,
+    "y": 34,
+    "scale": 74
+  }
+}

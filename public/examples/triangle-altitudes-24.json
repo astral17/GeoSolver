@@ -1,0 +1,217 @@
+{
+  "format": "geosolver",
+  "version": 1,
+  "projectTitle": "24",
+  "points": [
+    {
+      "id": "A",
+      "x": -5.693777794383528,
+      "y": -13.395462934713246
+    },
+    {
+      "id": "B",
+      "x": -3.7786744785489415,
+      "y": -14.459596522492836
+    },
+    {
+      "id": "C",
+      "x": -5.964657016969844,
+      "y": -16.514208783016237
+    },
+    {
+      "id": "D",
+      "x": -4.264450853471599,
+      "y": -14.916179732994678
+    },
+    {
+      "id": "E",
+      "x": -5.771173454053592,
+      "y": -14.286537542255564
+    },
+    {
+      "id": "F",
+      "x": -4.576634084889157,
+      "y": -14.01620737239182
+    },
+    {
+      "id": "H",
+      "x": -4.774923997484259,
+      "y": -14.373066908993106
+    },
+    {
+      "id": "K",
+      "x": -5.374594241549621,
+      "y": -13.572819184937087
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785360039779",
+      "type": "polygon",
+      "points": [
+        "A",
+        "B",
+        "C"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785360064677",
+      "type": "segment",
+      "points": [
+        "A",
+        "D"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785360066617",
+      "type": "segment",
+      "points": [
+        "B",
+        "E"
+      ],
+      "color": "#26a880"
+    },
+    {
+      "id": "shape-1785360069088",
+      "type": "segment",
+      "points": [
+        "C",
+        "F"
+      ],
+      "color": "#f0a11b"
+    },
+    {
+      "id": "shape-1785360234205",
+      "type": "circle",
+      "points": [
+        "H",
+        "E"
+      ],
+      "color": "#8c5ad7"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785360039778,
+      "expression": "distinct(ABC)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785360057178,
+      "expression": "D ∈ BC",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785360058301,
+      "expression": "E ∈ CA",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785360059182,
+      "expression": "F ∈ AB",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785360082828,
+      "expression": "H ∈ BE",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785360082829,
+      "expression": "H ∈ AD",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785360082830,
+      "expression": "H ∈ CF",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785360082831,
+      "expression": "AD ⟂ BC",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785360082832,
+      "expression": "BE ⟂ AC",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785360082833,
+      "expression": "CF ⟂ AB",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785360229381,
+      "expression": "HE ⟂ AC",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785360229382,
+      "expression": "B ∈ circle(HE)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785360388453,
+      "expression": "K = circle(HE) ∩ AB",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785360388454,
+      "expression": "BK = 5 * AK",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785360388457,
+      "expression": "HE = 1",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785360229380,
+      "expression": "r = HE",
+      "enabled": true,
+      "color": "#ef6b62"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785360388455,
+      "expression": "BC = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785360388456,
+      "expression": "r = ?",
+      "enabled": true,
+      "color": "#ef6b62"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-12",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "view": {
+    "x": 728.7899755816125,
+    "y": -2161.747104530939,
+    "scale": 149.01770035281555
+  }
+}

@@ -1,0 +1,199 @@
+{
+  "format": "geosolver",
+  "version": 1,
+  "projectTitle": "Полукруг турдакен",
+  "points": [
+    {
+      "id": "A",
+      "x": -2.846166068476138,
+      "y": -0.2929457051246713
+    },
+    {
+      "id": "B",
+      "x": -5.698456659123017,
+      "y": 0.5649285610397549
+    },
+    {
+      "id": "C",
+      "x": 0.006124610553919778,
+      "y": -1.1508197295062377
+    },
+    {
+      "id": "D",
+      "x": -1.068609111619988,
+      "y": 2.0969917120568313
+    },
+    {
+      "id": "E",
+      "x": -1.8120481197363558,
+      "y": 0.6181913271546458
+    },
+    {
+      "id": "F",
+      "x": -2.1491410201938197,
+      "y": -0.5025871911596228
+    },
+    {
+      "id": "G",
+      "x": -2.1797288082486936,
+      "y": 1.7293110386072144
+    },
+    {
+      "id": "H",
+      "x": -0.7009284306941801,
+      "y": 0.9858720954439099
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785352287683",
+      "type": "sector",
+      "points": [
+        "A",
+        "B",
+        "C"
+      ],
+      "color": "#5b6df9",
+      "arc": "minor"
+    },
+    {
+      "id": "shape-1785352348325",
+      "type": "polygon",
+      "points": [
+        "B",
+        "D",
+        "C"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785352362017",
+      "type": "circle",
+      "points": [
+        "E",
+        "F"
+      ],
+      "color": "#26a880"
+    },
+    {
+      "id": "shape-1785352457305",
+      "type": "polygon",
+      "points": [
+        "G",
+        "H",
+        "F"
+      ],
+      "color": "#f0a11b"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785352287683,
+      "expression": "AB = AC",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785352287684,
+      "expression": "distinct(ABC)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785352287685,
+      "expression": "∠BAC = 180°",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785352287686,
+      "expression": "",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785352340063,
+      "expression": "D ∈ arc(ABC)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785352348325,
+      "expression": "distinct(BDC)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785352371751,
+      "expression": "G ∈ circle(EF)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785352372835,
+      "expression": "G ∈ DB",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785352372834,
+      "expression": "H ∈ circle(EF)",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785352372836,
+      "expression": "H ∈ DC",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785352372837,
+      "expression": "F ∈ BC",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785352372838,
+      "expression": "EH ⟂ DC",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785352372839,
+      "expression": "EF ⟂ BC",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785352372840,
+      "expression": "EG ⟂ BD",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785352457305,
+      "expression": "distinct(GHF)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785352457306,
+      "expression": "∠GFH = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "view": {
+    "x": 254.16946005909836,
+    "y": 27.38521229667188,
+    "scale": 99.88955176062427
+  }
+}

@@ -6,8 +6,10 @@ import type {
   Measurement,
   Point,
   Shape,
+  SolverMode,
   SolveResult,
 } from "./domain";
+import { migrateProjectData } from "./project-migrations";
 
 export const COLORS = [
   "#5b6df9",
@@ -27,6 +29,7 @@ export const DEFAULT_SOLVER_MAX_ITERATIONS = 1200;
 export const DEFAULT_SOLVER_MAX_ITERATIONS_INPUT = "1200";
 export const DEFAULT_SOLVER_TIME_LIMIT_MS = 2500;
 export const DEFAULT_SOLVER_TIME_LIMIT_MS_INPUT = "2500";
+export const DEFAULT_SOLVER_MODE: SolverMode = "numerical";
 export const DEFAULT_DECIMAL_DIGITS = 3;
 export const SETTINGS_STORAGE_KEY = "geosolver-settings-v1";
 export const MAX_IMPORT_FILE_SIZE = 5 * 1024 * 1024;
@@ -156,7 +159,8 @@ function isImportedShape(value: unknown): value is Shape {
     if (
       value.arc !== undefined &&
       value.arc !== "minor" &&
-      value.arc !== "major"
+      value.arc !== "major" &&
+      value.arc !== "clockwise"
     ) {
       return false;
     }
@@ -234,15 +238,16 @@ export function snapshotKey(snapshot: DrawingSnapshot) {
 }
 
 export function parseImportedProject(source: string): ImportedProject {
-  let data: unknown;
+  let parsedData: unknown;
   try {
-    data = JSON.parse(source);
+    parsedData = JSON.parse(source);
   } catch {
     throw new Error("Файл содержит некорректный JSON.");
   }
-  if (!isRecord(data)) {
+  if (!isRecord(parsedData)) {
     throw new Error("Файл не похож на проект GeoSolver.");
   }
+  const data = migrateProjectData(parsedData);
 
   const measurements = data.measurements ?? [];
   const groups = data.groups ?? [];
@@ -360,6 +365,8 @@ export function parseImportedProject(source: string): ImportedProject {
       60_000,
     ),
   );
+  const solverMode: SolverMode =
+    data.solverMode === "analytic" ? "analytic" : DEFAULT_SOLVER_MODE;
   const importedView = data.view;
   const view =
     isRecord(importedView) &&
@@ -393,6 +400,7 @@ export function parseImportedProject(source: string): ImportedProject {
     solverEpsilon,
     solverMaxIterations,
     solverTimeLimitMs,
+    solverMode,
     view,
   };
 }

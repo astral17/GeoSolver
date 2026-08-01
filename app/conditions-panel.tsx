@@ -253,7 +253,7 @@ export function ConditionsPanel({
           const parsed =
             group.section === "known"
               ? parseConstraint(row.expression, bareAngleUnit)
-              : parseUnknown(row.expression);
+              : parseUnknown(row.expression, bareAngleUnit);
           return parsed?.ids ?? [];
         });
     }
@@ -584,6 +584,14 @@ export function ConditionsPanel({
                     )}
                   </span>
                 </button>
+                <button
+                  onClick={() =>
+                    addKnownExpression("S(ABC ∩ DEFG) = 5")
+                  }
+                >
+                  <b>S(ABC ∩ DEFG) = 5</b>
+                  <span>{t("площадь пересечения фигур", "figure intersection area")}</span>
+                </button>
                 <button onClick={() => addKnownExpression("x(A) = 0")}>
                   <b>x(A) = 0</b>
                   <span>{t("координата x точки", "point x-coordinate")}</span>
@@ -613,10 +621,54 @@ export function ConditionsPanel({
                   <span>{t("отрезки не пересекаются", "segments do not intersect")}</span>
                 </button>
                 <button
+                  onClick={() =>
+                    addKnownExpression("line(AB) ∩ circle(CD) = ∅")
+                  }
+                >
+                  <b>line(AB) ∩ circle(CD) = ∅</b>
+                  <span>{t("прямая не пересекает окружность", "line does not intersect circle")}</span>
+                </button>
+                <button
+                  onClick={() =>
+                    addKnownExpression(
+                      "distance(line(AB), circle(CD)) = 2",
+                    )
+                  }
+                >
+                  <b>distance(line(AB), circle(CD)) = 2</b>
+                  <span>{t("расстояние между объектами", "distance between objects")}</span>
+                </button>
+                <button onClick={() => addKnownExpression("convex(ABCD)")}>
+                  <b>convex(ABCD)</b>
+                  <span>{t("выпуклый многоугольник", "convex polygon")}</span>
+                </button>
+                <button
+                  onClick={() =>
+                    addKnownExpression("inside(ABC, DEFG)")
+                  }
+                >
+                  <b>inside(ABC, DEFG)</b>
+                  <span>{t("одна фигура внутри другой", "one figure inside another")}</span>
+                </button>
+                <button
                   onClick={() => addKnownExpression("H = EG ∩ DF")}
                 >
                   <b>H = EG ∩ DF</b>
-                  <span>{t("точка пересечения", "intersection point")}</span>
+                  <span>{t("единственная точка пересечения", "the only intersection point")}</span>
+                </button>
+                <button
+                  onClick={() => addKnownExpression("H ∈ EG ∩ DF")}
+                >
+                  <b>H ∈ EG ∩ DF</b>
+                  <span>{t("точка принадлежит пересечению", "point belongs to the intersection")}</span>
+                </button>
+                <button
+                  onClick={() =>
+                    addKnownExpression("{H, I} = circle(AB) ∩ circle(CD)")
+                  }
+                >
+                  <b>{"{H, I} = circle(AB) ∩ circle(CD)"}</b>
+                  <span>{t("точное множество пересечений", "exact intersection set")}</span>
                 </button>
                 <button
                   onClick={() => addKnownExpression("∠ABC = ∠BCA")}
@@ -901,6 +953,29 @@ export function ConditionsPanel({
                   <b>BC = ?</b>
                   <span>{t("длина", "length")}</span>
                 </button>
+                <button onClick={() => addUnknownExpression("AB = BC")}>
+                  <b>AB = BC</b>
+                  <span>{t("доказать равенство", "prove an equality")}</span>
+                </button>
+                <button onClick={() => addUnknownExpression("AB ⟂ CD")}>
+                  <b>AB ⟂ CD</b>
+                  <span>
+                    {t(
+                      "доказать или опровергнуть перпендикулярность",
+                      "prove or disprove perpendicularity",
+                    )}
+                  </span>
+                </button>
+                <button
+                  onClick={() =>
+                    addUnknownExpression(
+                      "distance(line(AB), circle(CD)) = ?",
+                    )
+                  }
+                >
+                  <b>distance(line(AB), circle(CD)) = ?</b>
+                  <span>{t("расстояние между объектами", "distance between objects")}</span>
+                </button>
                 <button onClick={() => addUnknownExpression("∠ABC = ?")}>
                   <b>∠ABC = ?</b>
                   <span>{t("угол", "angle")}</span>
@@ -930,6 +1005,14 @@ export function ConditionsPanel({
                       "circle, sector, segment or ellipse area",
                     )}
                   </span>
+                </button>
+                <button
+                  onClick={() =>
+                    addUnknownExpression("S(ABC ∩ DEFG) = ?")
+                  }
+                >
+                  <b>S(ABC ∩ DEFG) = ?</b>
+                  <span>{t("площадь пересечения фигур", "figure intersection area")}</span>
                 </button>
                 <button
                   onClick={() => addUnknownExpression("AB + BC = ?")}
@@ -964,7 +1047,7 @@ export function ConditionsPanel({
                 const number =
                   unknownNumbers.get(row.id) ??
                   unknown.findIndex((item) => item.id === row.id) + 1;
-                const target = parseUnknown(row.expression);
+                const target = parseUnknown(row.expression, bareAngleUnit);
                 const referenceError = target
                   ? deletedReferenceMessage(target.ids, points, locale)
                   : null;
@@ -1024,6 +1107,7 @@ export function ConditionsPanel({
                         onBlur={() => {
                           const normalized = normalizeUnknownExpression(
                             row.expression,
+                            bareAngleUnit,
                           );
                           if (normalized !== row.expression) {
                             updateRow(setUnknown, row.id, {
@@ -1119,14 +1203,16 @@ export function ConditionsPanel({
                   <b>AB + BC = AC</b>, <b>∠ABC = ∠BCA + 10°</b> или цепочка{" "}
                   <b>AB = BC = CD</b>. Площадь: <b>S(ABCD) = ?</b>,
                   периметр: <b>P(ABCD) = ?</b>. Для круглых фигур:
-                  <b> S(circle(AB))</b>, <b>S(sector(ABC))</b>.
+                  <b> S(circle(AB))</b>, <b>S(sector(ABC))</b>. Пересечение
+                  областей: <b>S(ABC ∩ DEFG)</b>.
                   Координаты: <b>x(A) = 2</b>, <b>y(A) = -1</b> или{" "}
                   <b>A = (2, -1)</b>. Переменные задаются
                   отдельными строками: <b>a = AB</b>, <b>b = 2*a</b>.
                   Неравенства: <b>0 &lt; AB &lt;= 10</b>. Топология:{" "}
                   <b>distinct(ABCD)</b> и <b>AB ∩ CD = ∅</b>. Пересечение:{" "}
-                  <b>H = EG ∩ DF</b> или{" "}
-                  <b>H = line(EG) ∩ circle(OA)</b>.
+                  <b>H = EG ∩ DF</b> означает ровно одну точку, <b>H ∈ EG ∩ DF</b>
+                  допускает другие точки, а <b>{"{H, I} = circle(OA) ∩ circle(BC)"}</b>
+                  задаёт всё множество.
                 </p>
               ) : (
                 <p>
@@ -1136,13 +1222,15 @@ export function ConditionsPanel({
                   <b>AB + BC = AC</b>, <b>∠ABC = ∠BCA + 10°</b>, or{" "}
                   <b>AB = BC = CD</b>. Area: <b>S(ABCD) = ?</b>,
                   perimeter: <b>P(ABCD) = ?</b>. Circular shapes:
-                  <b> S(circle(AB))</b>, <b>S(sector(ABC))</b>.
+                  <b> S(circle(AB))</b>, <b>S(sector(ABC))</b>. Region
+                  intersection: <b>S(ABC ∩ DEFG)</b>.
                   Coordinates: <b>x(A) = 2</b>, <b>y(A) = -1</b>, or{" "}
                   <b>A = (2, -1)</b>. Define variables on
                   separate rows: <b>a = AB</b>, <b>b = 2*a</b>.
                   Comparisons: <b>0 &lt; AB &lt;= 10</b>.
-                  Intersection: <b>H = EG ∩ DF</b> or{" "}
-                  <b>H = line(EG) ∩ circle(OA)</b>.
+                  <b>H = EG ∩ DF</b> means exactly one point, <b>H ∈ EG ∩ DF</b>
+                  allows additional points, and <b>{"{H, I} = circle(OA) ∩ circle(BC)"}</b>
+                  specifies the complete set.
                 </p>
               )}
             </div>

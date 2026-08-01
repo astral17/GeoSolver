@@ -1,0 +1,35 @@
+{
+  "format": "geosolver",
+  "version": 3,
+  "projectTitle": "t4 — высота к гипотенузе",
+  "points": [
+    { "id": "A", "x": -2.5812297885083475, "y": 4.353900865311867 },
+    { "id": "B", "x": -2.0707014331387796, "y": 9.32776865591142 },
+    { "id": "C", "x": 9.866581264300644, "y": 8.102500603021237 },
+    { "id": "D", "x": -0.7398376208282791, "y": 4.908427453599133 }
+  ],
+  "shapes": [
+    { "id": "shape-triangle", "type": "polygon", "points": ["A", "B", "C"], "color": "#5b6df9" },
+    { "id": "shape-altitude", "type": "segment", "points": ["B", "D"], "color": "#ef6b62" }
+  ],
+  "measurements": [],
+  "known": [
+    { "id": 1, "expression": "distinct(ABC)", "enabled": true, "color": "#5b6df9" },
+    { "id": 2, "expression": "∠ABC = 90°", "enabled": true, "color": "#ef6b62" },
+    { "id": 3, "expression": "D ∈ CA", "enabled": true, "color": "#f0a11b" },
+    { "id": 4, "expression": "∠BDC = 90°", "enabled": true, "color": "#8c5ad7" },
+    { "id": 5, "expression": "AB = 5", "enabled": true, "color": "#8c5ad7" },
+    { "id": 6, "expression": "BC = 12", "enabled": true, "color": "#5b6df9" },
+    { "id": 7, "expression": "AC = 13", "enabled": true, "color": "#ef6b62" }
+  ],
+  "unknown": [
+    { "id": 8, "expression": "AD = ?", "enabled": true, "color": "#5b6df9" },
+    { "id": 9, "expression": "CD = ?", "enabled": true, "color": "#ef6b62" }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": { "x": -64.0591480929624, "y": 554.0226163594306, "scale": 90.3838041038526 }
+}

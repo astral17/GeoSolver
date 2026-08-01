@@ -4,6 +4,7 @@ import type {
   ExpressionRow,
   ParsedConstraint,
   Point,
+  SolverMode,
   SolveResult,
 } from "./domain";
 import { equationText } from "./expressions";
@@ -16,6 +17,7 @@ type SolverPanelProps = {
   })[];
   points: Point[];
   result: SolveResult;
+  solverMode: SolverMode;
   solverMaxIterations: number;
   solverTimeLimitMs: number;
   solving: boolean;
@@ -29,6 +31,7 @@ export function SolverPanel({
   parsedKnown,
   points,
   result,
+  solverMode,
   solverMaxIterations,
   solverTimeLimitMs,
   solving,
@@ -42,6 +45,80 @@ export function SolverPanel({
   );
   const definitions = parsedKnown.filter(
     (item) => item.parsed?.kind === "definition",
+  );
+  const analyticSteps = [
+    ...(result.steps ?? []),
+    ...result.values.flatMap((value) => value.steps ?? []),
+    ...(result.statements ?? []).flatMap((statement) => statement.steps),
+  ].filter(
+    (step, index, steps) =>
+      steps.findIndex(
+        (candidate) =>
+          candidate.expression === step.expression &&
+          candidate.title.ru === step.title.ru,
+      ) === index,
+  );
+  const proofResults = (result.statements?.length ?? 0) > 0 && (
+    <div className="proof-results">
+      {result.statements?.map((statement, index) => (
+        <div
+          className={`proof-result ${statement.verdict}`}
+          key={`${statement.label}-${index}`}
+        >
+          <span>{statement.label}</span>
+          <b>
+            {statement.verdict === "proved"
+              ? t("Доказано", "Proved")
+              : statement.verdict === "disproved"
+                ? t("Опровергнуто", "Disproved")
+                : t("Не установлено", "Undetermined")}
+          </b>
+          <small>{t(statement.detail.ru, statement.detail.en)}</small>
+        </div>
+      ))}
+    </div>
+  );
+  const hasIncompleteGoals = Boolean(
+    result.goalSummary &&
+      result.goalSummary.completed < result.goalSummary.total,
+  );
+  const goalProgress = result.goalSummary && result.goalSummary.total > 0 && (
+    <div
+      className={`goal-progress ${hasIncompleteGoals ? "incomplete" : "complete"}`}
+      role={hasIncompleteGoals ? "status" : undefined}
+    >
+      <div>
+        <b>
+          {hasIncompleteGoals
+            ? t("Не все цели выполнены", "Not all targets completed")
+            : t("Все цели выполнены", "All targets completed")}
+        </b>
+        <span>
+          {result.goalSummary.completed} {t("из", "of")} {result.goalSummary.total}
+        </span>
+      </div>
+      {hasIncompleteGoals && result.goalSummary.unresolved.length > 0 && (
+        <ul>
+          {result.goalSummary.unresolved.map((label, index) => (
+            <li key={`${label}-${index}`}><code>{label}</code></li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+  const drawingProgress = solverMode === "analytic" && result.drawing && (
+    <div className={`drawing-progress ${result.drawing.status}`}>
+      <span>
+        {result.drawing.status === "rebuilt"
+          ? t("Чертёж перестроен", "Drawing rebuilt")
+          : result.drawing.status === "approximate"
+            ? t("Чертёж перестроен приближённо", "Drawing rebuilt approximately")
+            : t("Чертёж оставлен без изменений", "Drawing left unchanged")}
+      </span>
+      {result.drawing.status !== "unchanged" && (
+        <code>Δ {result.drawing.residual.toExponential(2)}</code>
+      )}
+    </div>
   );
 
   return (
@@ -68,8 +145,12 @@ export function SolverPanel({
             <h3>{t("Система ограничений", "Constraint system")}</h3>
             <p>
               {t(
-                "Координаты точек — переменные. Каждое условие становится уравнением.",
-                "Point coordinates are variables. Every condition becomes an equation.",
+                solverMode === "analytic"
+                  ? "Условия преобразуются в точные факты и связи между величинами."
+                  : "Координаты точек — переменные. Каждое условие становится уравнением.",
+                solverMode === "analytic"
+                  ? "Conditions become exact facts and relations between quantities."
+                  : "Point coordinates are variables. Every condition becomes an equation.",
               )}
             </p>
             <div className="equation-card">
@@ -107,20 +188,39 @@ export function SolverPanel({
         <div className="solve-step">
           <div className="step-marker">2</div>
           <div className="step-content">
-            <h3>{t("Численный поиск", "Numerical search")}</h3>
+            <h3>
+              {solverMode === "analytic"
+                ? t("Точный вывод", "Exact derivation")
+                : t("Численный поиск", "Numerical search")}
+            </h3>
             <p>
-              {t(
-                "Несколько стартовых приближений, адаптивный метод наименьших квадратов и проверка каждого ограничения.",
-                "Multiple starting approximations, adaptive least squares and a check of every constraint.",
-              )}
+              {solverMode === "analytic"
+                ? t(
+                    "Решатель применяет только поддерживаемые теоремы и сохраняет кратчайшую найденную цепочку преобразований.",
+                    "The solver applies supported theorems only and keeps the shortest derivation it finds.",
+                  )
+                : t(
+                    "Несколько стартовых приближений, адаптивный метод наименьших квадратов и проверка каждого ограничения.",
+                    "Multiple starting approximations, adaptive least squares and a check of every constraint.",
+                  )}
             </p>
             <div className="method-pills">
-              <span>multi-start</span>
-              <span>{t("МНК", "least squares")}</span>
-              <span>
-                ≤ {solverMaxIterations} {t("итераций", "iterations")}
-              </span>
-              <span>≤ {solverTimeLimitMs} ms</span>
+              {solverMode === "analytic" ? (
+                <>
+                  <span>{t("точная арифметика", "exact arithmetic")}</span>
+                  <span>{t("теоремы", "theorem rules")}</span>
+                  <span>{t("минимальный путь", "shortest path")}</span>
+                </>
+              ) : (
+                <>
+                  <span>multi-start</span>
+                  <span>{t("МНК", "least squares")}</span>
+                  <span>
+                    ≤ {solverMaxIterations} {t("итераций", "iterations")}
+                  </span>
+                  <span>≤ {solverTimeLimitMs} ms</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -128,12 +228,14 @@ export function SolverPanel({
         <div className="solve-step final-step">
           <div
             className={`step-marker ${
-              result.kind === "approximate" ? "warning" : "complete"
+              result.kind === "approximate" || hasIncompleteGoals
+                ? "warning"
+                : "complete"
             }`}
           >
             {result.kind === "dirty"
               ? "…"
-              : result.kind === "approximate"
+              : result.kind === "approximate" || hasIncompleteGoals
                 ? "!"
                 : "✓"}
           </div>
@@ -148,6 +250,7 @@ export function SolverPanel({
                     "Run the solver to update the drawing.",
                   )}
                 </p>
+                {proofResults}
               </div>
             )}
             {result.kind === "empty" && (
@@ -155,10 +258,16 @@ export function SolverPanel({
                 <span>{t("Недостаточно данных", "Not enough data")}</span>
                 <p>
                   {t(
-                    "Добавьте распознаваемые условия слева.",
-                    "Add recognized conditions on the left.",
+                    solverMode === "analytic"
+                      ? "Для этих целей пока не найдена поддерживаемая цепочка точных преобразований."
+                      : "Добавьте распознаваемые условия слева.",
+                    solverMode === "analytic"
+                      ? "No supported exact derivation was found for these targets yet."
+                      : "Add recognized conditions on the left.",
                   )}
                 </p>
+                {goalProgress}
+                {drawingProgress}
               </div>
             )}
             {(result.kind === "exact" ||
@@ -172,7 +281,9 @@ export function SolverPanel({
                   <span className="state-dot" />
                   <b>
                     {result.kind === "exact"
-                      ? t("Решение найдено", "Solution found")
+                      ? solverMode === "analytic"
+                        ? t("Анализ завершён", "Analysis complete")
+                        : t("Решение найдено", "Solution found")
                       : t("Показано ближайшее", "Nearest result shown")}
                   </b>
                   <small>
@@ -185,27 +296,71 @@ export function SolverPanel({
                 </div>
                 <div className="result-values">
                   {result.values.length ? (
-                    result.values.map((value) => (
-                      <div key={value.label}>
+                    result.values.map((value, index) => (
+                      <div key={`${value.label}-${index}`}>
                         <span>{value.label}</span>
                         <b>
-                          {formatNumber(value.value)}
+                          {[
+                            value.exact ?? formatNumber(value.value),
+                            ...(value.alternatives ?? []).map(
+                              (alternative) =>
+                                alternative.exact ??
+                                formatNumber(alternative.value),
+                            ),
+                          ].join(t(" или ", " or "))}
                           {value.suffix}
                         </b>
+                        {value.exact && (
+                          <small className="exact-approximation">
+                            ≈ {[
+                              formatNumber(value.value),
+                              ...(value.alternatives ?? []).map(
+                                (alternative) =>
+                                  formatNumber(alternative.value),
+                              ),
+                            ].join(t(" или ", " or "))}
+                            {value.suffix}
+                          </small>
+                        )}
                       </div>
                     ))
-                  ) : (
+                  ) : !(result.statements?.length ?? 0) ? (
                     <p>
                       {t(
                         "Добавьте цель в раздел «Что найти».",
                         "Add a target in the “Find” section.",
                       )}
                     </p>
-                  )}
+                  ) : null}
                 </div>
+                {proofResults}
+                {goalProgress}
+                {solverMode === "analytic" && analyticSteps.length > 0 && (
+                  <div className="analytic-steps">
+                    <b>{t("Кратчайший вывод", "Shortest derivation")}</b>
+                    <ol>
+                      {analyticSteps.map((step, index) => (
+                        <li key={`${step.title.ru}-${step.expression ?? index}`}>
+                          <span>{t(step.title.ru, step.title.en)}</span>
+                          <small>{t(step.detail.ru, step.detail.en)}</small>
+                          {step.expression && <code>{step.expression}</code>}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+                {drawingProgress}
                 <div className="residual">
-                  <span>{t("Невязка", "Residual")}</span>
-                  <code>{result.residual.toExponential(2)}</code>
+                  <span>
+                    {solverMode === "analytic"
+                      ? t("Точный вывод", "Exact derivation")
+                      : t("Невязка", "Residual")}
+                  </span>
+                  <code>
+                    {solverMode === "analytic"
+                      ? t("без округления", "without rounding")
+                      : result.residual.toExponential(2)}
+                  </code>
                 </div>
               </div>
             )}

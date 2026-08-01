@@ -266,8 +266,10 @@ export function useObjectEditing({
         points: points.slice(0, pointCount).map((point) => point.id),
         color: COLORS[current.length % COLORS.length],
         arc:
-          type === "sector" || type === "circularSegment"
-            ? "minor"
+          type === "sector"
+            ? "clockwise"
+            : type === "circularSegment"
+              ? "minor"
             : undefined,
       },
     ]);

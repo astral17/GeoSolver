@@ -1,0 +1,221 @@
+{
+  "format": "geosolver",
+  "version": 1,
+  "projectTitle": "Зелёный против синего",
+  "points": [
+    {
+      "id": "A",
+      "x": -2.813239699625755,
+      "y": -2.71974976122465
+    },
+    {
+      "id": "B",
+      "x": -1.7499205077801148,
+      "y": 2.7276358552216022
+    },
+    {
+      "id": "C",
+      "x": 3.697465101764603,
+      "y": 1.6643166669204972
+    },
+    {
+      "id": "D",
+      "x": 2.63414590985021,
+      "y": -3.7830689494909677
+    },
+    {
+      "id": "E",
+      "x": 3.239982437678058,
+      "y": -0.679367587825619
+    },
+    {
+      "id": "F",
+      "x": -4.853621878466485,
+      "y": 3.3334723780658724
+    },
+    {
+      "id": "G",
+      "x": 1.1996002588053092,
+      "y": 5.373854551444686
+    },
+    {
+      "id": "H",
+      "x": 2.3621280077781184,
+      "y": 1.9249718992736145
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785354807962",
+      "type": "polygon",
+      "points": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785354829029",
+      "type": "polygon",
+      "points": [
+        "A",
+        "F",
+        "G",
+        "E"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785354845458",
+      "type": "polygon",
+      "points": [
+        "F",
+        "B",
+        "G"
+      ],
+      "color": "#26a880"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785354807962,
+      "expression": "AB = BC = CD = DA",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785354807963,
+      "expression": "AB ∥ CD",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785354807964,
+      "expression": "BC ∥ DA",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785354807965,
+      "expression": "∠DAB = 90°",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785354807966,
+      "expression": "distinct(ABCD)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785354807967,
+      "expression": "AB ∩ CD = ∅",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785354807968,
+      "expression": "BC ∩ DA = ∅",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785354814265,
+      "expression": "E ∈ CD",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785354829029,
+      "expression": "AF = FG = GE = EA",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785354829030,
+      "expression": "AF ∥ GE",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785354829031,
+      "expression": "FG ∥ EA",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785354829032,
+      "expression": "∠EAF = 90°",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785354829033,
+      "expression": "distinct(AFGE)",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785354829034,
+      "expression": "AF ∩ GE = ∅",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785354829035,
+      "expression": "FG ∩ EA = ∅",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785354845458,
+      "expression": "distinct(FBG)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785354845459,
+      "expression": "S(BFG) = 5",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785354890891,
+      "expression": "H = BC ∩ GE",
+      "enabled": true,
+      "color": "#26a880"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785354845460,
+      "expression": "S(AFB) + S(BGH) = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785354845461,
+      "expression": "S(HCE) + S(AED) = ?",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785354890892,
+      "expression": "S(AFB) + S(BGH) - S(HCE) - S(AED) = ?",
+      "enabled": true,
+      "color": "#26a880"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "view": {
+    "x": 0,
+    "y": 0,
+    "scale": 74
+  }
+}

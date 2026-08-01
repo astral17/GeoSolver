@@ -1,0 +1,120 @@
+{
+  "format": "geosolver",
+  "version": 1,
+  "projectTitle": "26",
+  "points": [
+    {
+      "id": "A",
+      "x": -3.118888858765721,
+      "y": -0.5649214345569051
+    },
+    {
+      "id": "B",
+      "x": -1.2152280956681714,
+      "y": 1.7491515179136707
+    },
+    {
+      "id": "C",
+      "x": -0.16301247876142222,
+      "y": -1.0565035185407607
+    },
+    {
+      "id": "O",
+      "x": 1.7406483632710648,
+      "y": 1.2575694094337355
+    },
+    {
+      "id": "M",
+      "x": -0.20729209084285372,
+      "y": 3.534494220909775,
+      "angle": 2.278482702701467
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785358070836",
+      "type": "polygon",
+      "points": [
+        "A",
+        "B",
+        "C"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785358073939",
+      "type": "polygon",
+      "points": [
+        "O",
+        "B",
+        "C"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785358117729",
+      "type": "circle",
+      "points": [
+        "O",
+        "B"
+      ],
+      "color": "#26a880"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785358070836,
+      "expression": "AB = BC = CA",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785358070837,
+      "expression": "distinct(ABC)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785358073939,
+      "expression": "OB = BC = CO",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785358073940,
+      "expression": "distinct(OBC)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785358073941,
+      "expression": "distinct(AO)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785358136929,
+      "expression": "M ∈ circle(OB)",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785358136930,
+      "expression": "MB^2+MC^2-MA^2 = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "0.000001",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "view": {
+    "x": 11.199951171875,
+    "y": 0,
+    "scale": 74
+  }
+}

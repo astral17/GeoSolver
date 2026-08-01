@@ -1,0 +1,163 @@
+{
+  "format": "geosolver",
+  "version": 3,
+  "projectTitle": "Я видел равнобедренных",
+  "points": [
+    {
+      "id": "A",
+      "x": 0.8263722871701444,
+      "y": 1.5194872642235098
+    },
+    {
+      "id": "B",
+      "x": -0.8940192190111802,
+      "y": -0.6341134600525734
+    },
+    {
+      "id": "C",
+      "x": -1.9300252635956823,
+      "y": 1.5234314087223684
+    },
+    {
+      "id": "D",
+      "x": 3.0540264389881324,
+      "y": -0.10387344554857786
+    },
+    {
+      "id": "E",
+      "x": -0.021650294829005066,
+      "y": 4.142195924094525
+    },
+    {
+      "id": "F",
+      "x": 3.0586630590154305,
+      "y": 3.136466214017733
+    },
+    {
+      "id": "G",
+      "x": -0.026286915022708756,
+      "y": 0.901856264407623
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785589802568",
+      "type": "circle",
+      "points": [
+        "A",
+        "B"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785589826594",
+      "type": "polygon",
+      "points": [
+        "C",
+        "E",
+        "D"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785589833293",
+      "type": "polygon",
+      "points": [
+        "D",
+        "E",
+        "F"
+      ],
+      "color": "#26a880"
+    },
+    {
+      "id": "shape-1785589851156",
+      "type": "segment",
+      "points": [
+        "E",
+        "G"
+      ],
+      "color": "#f0a11b"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785589809607,
+      "expression": "C ∈ circle(AB)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785589811456,
+      "expression": "D ∈ circle(AB)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785589812697,
+      "expression": "E ∈ circle(AB)",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785589816565,
+      "expression": "F ∈ circle(AB)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785589826595,
+      "expression": "distinct(CED)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785589833293,
+      "expression": "distinct(DEF)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785589841385,
+      "expression": "G ∈ DC",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785589841386,
+      "expression": "CE = EG = GD",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785589841388,
+      "expression": "EF = FD",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785589841389,
+      "expression": "ED = CD",
+      "enabled": true,
+      "color": "#8c5ad7"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785589841387,
+      "expression": "∠EFD = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": {
+    "x": 35,
+    "y": 34,
+    "scale": 74
+  }
+}

@@ -1,0 +1,374 @@
+{
+  "format": "geosolver",
+  "version": 1,
+  "projectTitle": "Сказка о двух кругах",
+  "points": [
+    {
+      "id": "A",
+      "x": -1.8838215780974095,
+      "y": 0.28182373290616264
+    },
+    {
+      "id": "B",
+      "x": -0.46559107502505,
+      "y": 2.681102534511489
+    },
+    {
+      "id": "C",
+      "x": 0.9031300096526603,
+      "y": 0.2532395088471861
+    },
+    {
+      "id": "D",
+      "x": 2.8189750664702475,
+      "y": 0.26028729813048135
+    },
+    {
+      "id": "E",
+      "x": 2.1320350145442855,
+      "y": 1.4727617076594803
+    },
+    {
+      "id": "F",
+      "x": 2.8385988989013295,
+      "y": 2.673906093638927
+    },
+    {
+      "id": "G",
+      "x": 4.232102037373781,
+      "y": 2.6625757078756505
+    },
+    {
+      "id": "H",
+      "x": 4.919041005194854,
+      "y": 1.4501016964533584
+    },
+    {
+      "id": "I",
+      "x": 4.212477631105926,
+      "y": 0.24895810813619104
+    },
+    {
+      "id": "J",
+      "x": -1.1747062810747475,
+      "y": 1.4814631166578438
+    },
+    {
+      "id": "K",
+      "x": 0.2187695541632181,
+      "y": 1.4671709695192665
+    },
+    {
+      "id": "L",
+      "x": -0.4903456887871705,
+      "y": 0.26753158329828103
+    },
+    {
+      "id": "M",
+      "x": 3.5255381911968295,
+      "y": 1.4614317522167062
+    },
+    {
+      "id": "N",
+      "x": 3.515726852475291,
+      "y": 0.2546227373498192
+    },
+    {
+      "id": "O",
+      "x": 2.4755050189805625,
+      "y": 0.866524477936199
+    },
+    {
+      "id": "P",
+      "x": 2.485316957152473,
+      "y": 2.0733338425443955
+    },
+    {
+      "id": "Q",
+      "x": 3.5353506048026415,
+      "y": 2.6682408146859147
+    },
+    {
+      "id": "R",
+      "x": 4.575571620305025,
+      "y": 2.0563384142503844
+    },
+    {
+      "id": "S",
+      "x": 4.565759316331043,
+      "y": 0.8495297594064701
+    },
+    {
+      "id": "T",
+      "x": -0.4820941347332585,
+      "y": 1.0720552256259435
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785353273288",
+      "type": "polygon",
+      "points": [
+        "A",
+        "B",
+        "C"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785353289807",
+      "type": "polygon",
+      "points": [
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785353309829",
+      "type": "circle",
+      "points": [
+        "M",
+        "N"
+      ],
+      "color": "#26a880"
+    },
+    {
+      "id": "shape-1785353401942",
+      "type": "circle",
+      "points": [
+        "T",
+        "L"
+      ],
+      "color": "#f0a11b"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785353273288,
+      "expression": "AB = BC = CA",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785353273289,
+      "expression": "distinct(ABC)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785353289807,
+      "expression": "∠IDE = ∠DEF = ∠EFG = ∠FGH = ∠GHI = ∠HID",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785353289808,
+      "expression": "DE = EF = FG = GH = HI = ID",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785353289809,
+      "expression": "distinct(DEFGHI)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785353289810,
+      "expression": "DE ∩ FG = ∅",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785353289811,
+      "expression": "DE ∩ GH = ∅",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785353289812,
+      "expression": "DE ∩ HI = ∅",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785353289813,
+      "expression": "EF ∩ GH = ∅",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785353289814,
+      "expression": "EF ∩ HI = ∅",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785353289815,
+      "expression": "EF ∩ ID = ∅",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785353289816,
+      "expression": "FG ∩ HI = ∅",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785353289817,
+      "expression": "FG ∩ ID = ∅",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785353289818,
+      "expression": "GH ∩ ID = ∅",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785353296286,
+      "expression": "J = AB ∩ Circle(TL)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785353297416,
+      "expression": "K = BC ∩ Circle(TL)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785353298344,
+      "expression": "L = CA ∩ Circle(TL)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785353324150,
+      "expression": "N ∈ DI",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785353313105,
+      "expression": "O = circle(MN) ∩ ED",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785353315233,
+      "expression": "P = circle(MN) ∩ EF",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785353318389,
+      "expression": "Q = circle(MN) ∩ FG",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785353321663,
+      "expression": "R = circle(MN) ∩ GH",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785353324149,
+      "expression": "S = circle(MN) ∩ HI",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785353324154,
+      "expression": "TL ⟂ AC",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785353324155,
+      "expression": "TK ⟂ BC",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785353324156,
+      "expression": "TJ ⟂ AB",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785353324157,
+      "expression": "MN ⟂ DI",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785353324158,
+      "expression": "MO ⟂ DE",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785353324159,
+      "expression": "MP ⟂ EF",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785353324160,
+      "expression": "MQ ⟂ FG",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785353324161,
+      "expression": "MR ⟂ GH",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785353324162,
+      "expression": "MS ⟂ HI",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785353324163,
+      "expression": "P(ABC) = P(DEFGHI)",
+      "enabled": true,
+      "color": "#26a880"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785353324151,
+      "expression": "S(Circle(TL)) / S(Circle(MN)) = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785353324164,
+      "expression": "S(Circle(MN)) / S(Circle(TL)) = ?",
+      "enabled": true,
+      "color": "#ef6b62"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "view": {
+    "x": -172.62347902721376,
+    "y": 38.12588520294878,
+    "scale": 89.12829385720056
+  }
+}

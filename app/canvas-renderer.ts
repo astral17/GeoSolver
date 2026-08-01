@@ -13,6 +13,7 @@ import type {
 import {
   angleDegrees,
   distance,
+  ellipseGeometry,
   pointMap,
   polygonArea,
   resolveArcEnd,
@@ -209,28 +210,21 @@ export function useCanvasRenderer(options: CanvasRendererOptions) {
         context.fill();
         context.stroke();
       } else if (shape.type === "ellipse" && screens.length >= 3) {
-        const center = screens[0];
-        const firstAxis = screens[1];
-        const secondAxis = screens[2];
-        const radiusX = Math.max(
-          1,
-          Math.hypot(firstAxis.x - center.x, firstAxis.y - center.y),
+        const geometry = ellipseGeometry(
+          shapePoints[0],
+          shapePoints[1],
+          shapePoints[2],
         );
-        const radiusY = Math.max(
-          1,
-          Math.hypot(secondAxis.x - center.x, secondAxis.y - center.y),
-        );
-        const rotation = Math.atan2(
-          firstAxis.y - center.y,
-          firstAxis.x - center.x,
-        );
+        const center = worldToScreen(geometry.center);
+        const radiusX = Math.max(1, geometry.radiusX * view.scale);
+        const radiusY = Math.max(1, geometry.radiusY * view.scale);
         context.beginPath();
         context.ellipse(
           center.x,
           center.y,
           radiusX,
           radiusY,
-          rotation,
+          -geometry.rotation,
           0,
           Math.PI * 2,
         );
@@ -260,7 +254,7 @@ export function useCanvasRenderer(options: CanvasRendererOptions) {
           secondRadius.y - center.y,
           secondRadius.x - center.x,
         );
-        const end = resolveArcEnd(start, rawEnd, shape.arc);
+        const end = resolveArcEnd(start, rawEnd, shape.arc, true);
         context.beginPath();
         if (shape.type === "sector") {
           context.moveTo(center.x, center.y);
@@ -367,6 +361,7 @@ export function useCanvasRenderer(options: CanvasRendererOptions) {
       (
         [
           "polygon",
+          "crossedPolygon",
           "polyline",
           "regularPolygon",
           "triangle",
@@ -375,7 +370,6 @@ export function useCanvasRenderer(options: CanvasRendererOptions) {
           "equilateralTriangle",
           "ellipse",
           "sector",
-          "majorSector",
           "circularSegment",
           "quadrilateral",
           "square",

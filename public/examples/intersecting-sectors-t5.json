@@ -1,0 +1,46 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "t5 — пересечение секторов",
+  "points": [
+    { "id": "A", "x": -5.788896235029209, "y": 0.03295795587678629 },
+    { "id": "B", "x": 6.208739020222709, "y": 0.2711769344270316 },
+    { "id": "C", "x": 0.20992139257029213, "y": 0.15206744658748528 },
+    { "id": "D", "x": 2.2095272685232366, "y": 0.19177060582358826 },
+    { "id": "E", "x": -1.789684483384149, "y": 0.11236428768098043 },
+    { "id": "F", "x": 3.209330206387897, "y": 0.2116221909112386 },
+    { "id": "G", "x": 1.45732871162788, "y": -2.223637705349825 }
+  ],
+  "shapes": [
+    { "id": "shape-base", "type": "segment", "points": ["A", "B"], "color": "#5b6df9" },
+    { "id": "shape-left-sector", "type": "sector", "points": ["E", "D", "A"], "color": "#ef6b62", "arc": "clockwise" },
+    { "id": "shape-right-sector", "type": "sector", "points": ["F", "B", "C"], "color": "#26a880", "arc": "clockwise" },
+    { "id": "shape-gc", "type": "segment", "points": ["C", "G"], "color": "#f0a11b" },
+    { "id": "shape-gd", "type": "segment", "points": ["G", "D"], "color": "#8c5ad7" }
+  ],
+  "measurements": [],
+  "known": [
+    { "id": 1, "expression": "C ∈ AB", "enabled": true, "color": "#5b6df9" },
+    { "id": 2, "expression": "D ∈ AB", "enabled": true, "color": "#ef6b62" },
+    { "id": 3, "expression": "E ∈ AB", "enabled": true, "color": "#26a880" },
+    { "id": 4, "expression": "F ∈ AB", "enabled": true, "color": "#f0a11b" },
+    { "id": 5, "expression": "EA = ED", "enabled": true, "color": "#8c5ad7" },
+    { "id": 6, "expression": "distinct(EAD)", "enabled": true, "color": "#5b6df9" },
+    { "id": 7, "expression": "FC = FB", "enabled": true, "color": "#ef6b62" },
+    { "id": 8, "expression": "distinct(FCB)", "enabled": true, "color": "#26a880" },
+    { "id": 9, "expression": "AC = 6", "enabled": true, "color": "#f0a11b" },
+    { "id": 10, "expression": "CD = 2", "enabled": true, "color": "#8c5ad7" },
+    { "id": 11, "expression": "DB = 4", "enabled": true, "color": "#5b6df9" },
+    { "id": 12, "expression": "G ∈ arc(FBC)", "enabled": true, "color": "#ef6b62" },
+    { "id": 13, "expression": "G ∈ arc(EDA)", "enabled": true, "color": "#26a880" }
+  ],
+  "unknown": [
+    { "id": 14, "expression": "∠CGD = ?", "enabled": true, "color": "#5b6df9" }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": { "x": 34.1372241409627, "y": -66.51029156313766, "scale": 90.38380410385263 }
+}

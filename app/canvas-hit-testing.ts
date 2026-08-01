@@ -1,11 +1,13 @@
 import { useCallback } from "react";
 
-import type { Point, Shape } from "./domain";
+import type { IntersectionObject, Point, Shape } from "./domain";
 import {
+  ellipseGeometry,
   isAngleOnArc,
   pointMap,
   projectPointToArc,
   projectPointToCircle,
+  projectPointToEllipse,
   resolveArcEnd,
 } from "./geometry";
 
@@ -32,6 +34,83 @@ export type CanvasObjectHit = {
     | "onEllipse";
   objectName: string;
 } | null;
+
+export type CanvasLinearObjectHit = {
+  shapeId: string;
+  startId: string;
+  endId: string;
+  kind: "segment" | "line" | "ray";
+  objectName: string;
+  distance: number;
+};
+
+export type CanvasIntersectionObjectHit = {
+  shapeId: string;
+  startId: string;
+  endId: string;
+  thirdId?: string;
+  kind: Exclude<IntersectionObject["kind"], "auto" | "polygon">;
+  objectName: string;
+  distance: number;
+};
+
+function linearEdges(shape: Shape) {
+  if (
+    shape.type === "segment" ||
+    shape.type === "line" ||
+    shape.type === "ray"
+  ) {
+    return [
+      {
+        startId: shape.points[0],
+        endId: shape.points[1],
+        kind: shape.type,
+      },
+    ];
+  }
+  if (shape.type === "polyline" || shape.type === "polygon") {
+    return [
+      ...shape.points.slice(0, -1).map((startId, index) => ({
+        startId,
+        endId: shape.points[index + 1],
+        kind: "segment" as const,
+      })),
+      ...(shape.type === "polygon"
+        ? [
+            {
+              startId: shape.points.at(-1)!,
+              endId: shape.points[0],
+              kind: "segment" as const,
+            },
+          ]
+        : []),
+    ];
+  }
+  if (shape.type === "sector") {
+    return [
+      {
+        startId: shape.points[0],
+        endId: shape.points[1],
+        kind: "segment" as const,
+      },
+      {
+        startId: shape.points[0],
+        endId: shape.points[2],
+        kind: "segment" as const,
+      },
+    ];
+  }
+  if (shape.type === "circularSegment") {
+    return [
+      {
+        startId: shape.points[1],
+        endId: shape.points[2],
+        kind: "segment" as const,
+      },
+    ];
+  }
+  return [];
+}
 
 export function useCanvasHitTesting({
   points,
@@ -60,6 +139,127 @@ export function useCanvasHitTesting({
       [findPointsAt],
     );
 
+    const findLinearObjectsAt = useCallback(
+      (x: number, y: number) => {
+        const map = pointMap(points);
+        return shapes
+          .filter((shape) => shape.visible !== false)
+          .flatMap((shape) =>
+            linearEdges(shape).flatMap((edge) => {
+              const start = map.get(edge.startId);
+              const end = map.get(edge.endId);
+              if (!start || !end) return [];
+              const startScreen = worldToScreen(start);
+              const endScreen = worldToScreen(end);
+              const dx = endScreen.x - startScreen.x;
+              const dy = endScreen.y - startScreen.y;
+              const lengthSquared = Math.max(dx * dx + dy * dy, 1e-9);
+              const rawT =
+                ((x - startScreen.x) * dx + (y - startScreen.y) * dy) /
+                lengthSquared;
+              const t =
+                edge.kind === "line"
+                  ? rawT
+                  : edge.kind === "ray"
+                    ? Math.max(0, rawT)
+                    : Math.max(0, Math.min(1, rawT));
+              const distance = Math.hypot(
+                x - (startScreen.x + dx * t),
+                y - (startScreen.y + dy * t),
+              );
+              if (distance > 18) return [];
+              return [
+                {
+                  shapeId: shape.id,
+                  startId: edge.startId,
+                  endId: edge.endId,
+                  kind: edge.kind,
+                  objectName: `${edge.kind}(${edge.startId}${edge.endId})`,
+                  distance,
+                } satisfies CanvasLinearObjectHit,
+              ];
+            }),
+          )
+          .sort((first, second) => first.distance - second.distance);
+      },
+      [points, shapes, worldToScreen],
+    );
+
+    const findIntersectionObjectsAt = useCallback(
+      (x: number, y: number) => {
+        const map = pointMap(points);
+        const click = screenToWorld(x, y);
+        const curvedHits = shapes.flatMap((shape) => {
+          if (
+            shape.visible === false ||
+            ![
+              "circle",
+              "ellipse",
+              "sector",
+              "circularSegment",
+            ].includes(shape.type)
+          ) {
+            return [];
+          }
+          const center = map.get(shape.points[0]);
+          const radiusPoint = map.get(shape.points[1]);
+          if (!center || !radiusPoint) return [];
+          const thirdPoint = shape.points[2]
+            ? map.get(shape.points[2])
+            : undefined;
+          if (shape.type !== "circle" && !thirdPoint) return [];
+          const sourcePoint = { id: "", x: click.x, y: click.y };
+          const projected =
+            shape.type === "circle"
+              ? projectPointToCircle(sourcePoint, center, radiusPoint)
+              : shape.type === "ellipse"
+                ? projectPointToEllipse(
+                    sourcePoint,
+                    center,
+                    radiusPoint,
+                    thirdPoint as Point,
+                  )
+                : projectPointToArc(
+                    sourcePoint,
+                    center,
+                    radiusPoint,
+                    thirdPoint as Point,
+                    shape.arc,
+                  );
+          const screen = worldToScreen(projected);
+          const hitDistance = Math.hypot(screen.x - x, screen.y - y);
+          if (hitDistance > 18) return [];
+          const kind = shape.type as Exclude<
+            IntersectionObject["kind"],
+            "auto" | "polygon"
+          >;
+          return [
+            {
+              shapeId: shape.id,
+              startId: center.id,
+              endId: radiusPoint.id,
+              thirdId: thirdPoint?.id,
+              kind,
+              objectName: `${kind}(${shape.points.join("")})`,
+              distance: hitDistance,
+            },
+          ];
+        });
+        return [
+          ...findLinearObjectsAt(x, y),
+          ...curvedHits,
+        ].sort((first, second) => first.distance - second.distance) satisfies
+          CanvasIntersectionObjectHit[];
+      },
+      [
+        findLinearObjectsAt,
+        points,
+        screenToWorld,
+        shapes,
+        worldToScreen,
+      ],
+    );
+
     const findObjectAt = useCallback(
       (x: number, y: number) => {
         const map = pointMap(points);
@@ -67,68 +267,40 @@ export function useCanvasHitTesting({
         shapes.forEach((shape) => {
           if (shape.visible === false) return;
           if (shape.type === "ellipse") {
-            const center = map.get(shape.points[0]);
-            const firstAxis = map.get(shape.points[1]);
-            const secondAxis = map.get(shape.points[2]);
-            if (!center || !firstAxis || !secondAxis) return;
-            const centerScreen = worldToScreen(center);
-            const firstScreen = worldToScreen(firstAxis);
-            const secondScreen = worldToScreen(secondAxis);
-            const radiusX = Math.max(
-              1,
-              Math.hypot(
-                firstScreen.x - centerScreen.x,
-                firstScreen.y - centerScreen.y,
-              ),
+            const firstFocus = map.get(shape.points[0]);
+            const secondFocus = map.get(shape.points[1]);
+            const boundaryPoint = map.get(shape.points[2]);
+            if (!firstFocus || !secondFocus || !boundaryPoint) return;
+            const geometry = ellipseGeometry(
+              firstFocus,
+              secondFocus,
+              boundaryPoint,
             );
-            const radiusY = Math.max(
-              1,
-              Math.hypot(
-                secondScreen.x - centerScreen.x,
-                secondScreen.y - centerScreen.y,
-              ),
+            if (geometry.radiusY <= 1e-8) return;
+            const projected = projectPointToEllipse(
+              { id: "", ...screenToWorld(x, y) },
+              firstFocus,
+              secondFocus,
+              boundaryPoint,
             );
-            const rotation = Math.atan2(
-              firstScreen.y - centerScreen.y,
-              firstScreen.x - centerScreen.x,
-            );
-            const dx = x - centerScreen.x;
-            const dy = y - centerScreen.y;
-            const localX =
-              dx * Math.cos(rotation) + dy * Math.sin(rotation);
-            const localY =
-              -dx * Math.sin(rotation) + dy * Math.cos(rotation);
-            const angle = Math.atan2(localY / radiusY, localX / radiusX);
-            const projectedLocalX = Math.cos(angle) * radiusX;
-            const projectedLocalY = Math.sin(angle) * radiusY;
-            const projectedX =
-              centerScreen.x +
-              projectedLocalX * Math.cos(rotation) -
-              projectedLocalY * Math.sin(rotation);
-            const projectedY =
-              centerScreen.y +
-              projectedLocalX * Math.sin(rotation) +
-              projectedLocalY * Math.cos(rotation);
+            const projectedScreen = worldToScreen(projected);
             const hitDistance = Math.hypot(
-              x - projectedX,
-              y - projectedY,
+              x - projectedScreen.x,
+              y - projectedScreen.y,
             );
             if (
               hitDistance <= 18 &&
               (!closest || hitDistance < closest.distance)
             ) {
               closest = {
-                startId: center.id,
-                endId: firstAxis.id,
-                thirdId: secondAxis.id,
+                startId: firstFocus.id,
+                endId: secondFocus.id,
+                thirdId: boundaryPoint.id,
                 shapeId: shape.id,
-                point: {
-                  id: "",
-                  ...screenToWorld(projectedX, projectedY),
-                },
+                point: projected,
                 distance: hitDistance,
                 constraintKind: "onEllipse",
-                objectName: `ellipse(${center.id}${firstAxis.id}${secondAxis.id})`,
+                objectName: `ellipse(${firstFocus.id}${secondFocus.id}${boundaryPoint.id})`,
               };
             }
             return;
@@ -167,7 +339,7 @@ export function useCanvasHitTesting({
                   secondRadiusScreen.y - centerScreen.y,
                   secondRadiusScreen.x - centerScreen.x,
                 );
-                const end = resolveArcEnd(start, rawEnd, shape.arc);
+                const end = resolveArcEnd(start, rawEnd, shape.arc, true);
                 const pointerAngle = Math.atan2(
                   y - centerScreen.y,
                   x - centerScreen.x,
@@ -321,5 +493,11 @@ export function useCanvasHitTesting({
       [points, screenToWorld, shapes, worldToScreen],
     );
 
-  return { findPointAt, findPointsAt, findObjectAt };
+  return {
+    findPointAt,
+    findPointsAt,
+    findObjectAt,
+    findLinearObjectsAt,
+    findIntersectionObjectsAt,
+  };
 }

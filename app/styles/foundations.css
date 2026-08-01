@@ -1848,8 +1848,18 @@ canvas:focus-visible {
   cursor: pointer;
 }
 
-.shape-object-row .object-arc-select {
+.shape-object-row .object-arc-select,
+.shape-object-row .object-arc-direction {
   grid-column: 5 / 7;
+}
+
+.object-arc-direction {
+  min-height: 28px;
+  border: 1px solid var(--border-color, #dfe2e7);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
 }
 
 .add-popover button {

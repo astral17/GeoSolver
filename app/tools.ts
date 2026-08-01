@@ -5,6 +5,7 @@ export type ToolId =
   | "marquee"
   | "point"
   | "pointOnSegment"
+  | "intersectionPoint"
   | "segment"
   | "line"
   | "ray"
@@ -12,9 +13,9 @@ export type ToolId =
   | "circle"
   | "ellipse"
   | "sector"
-  | "majorSector"
   | "circularSegment"
   | "polygon"
+  | "crossedPolygon"
   | "regularPolygon"
   | "triangle"
   | "rightTriangle"
@@ -94,6 +95,14 @@ export const TOOLS: ToolDefinition[] = [
     code: "KeyO",
   },
   {
+    id: "intersectionPoint",
+    label: "Точка пересечения",
+    icon: "⊗",
+    hint: "Кликните рядом с двумя линиями или выберите их двумя кликами",
+    shortcut: "I",
+    code: "KeyI",
+  },
+  {
     id: "segment",
     label: "Отрезок",
     icon: "╱",
@@ -137,7 +146,7 @@ export const TOOLS: ToolDefinition[] = [
     id: "ellipse",
     label: "Эллипс",
     icon: "⬭",
-    hint: "Укажите центр и концы двух полуосей",
+    hint: "Укажите два фокуса и точку на эллипсе",
     shortcut: "2",
     code: "",
   },
@@ -145,16 +154,8 @@ export const TOOLS: ToolDefinition[] = [
     id: "sector",
     label: "Сектор",
     icon: "◔",
-    hint: "Укажите центр и две точки на малой дуге",
+    hint: "Укажите центр, начало и конец дуги по часовой стрелке",
     shortcut: "3",
-    code: "",
-  },
-  {
-    id: "majorSector",
-    label: "Большой сектор",
-    icon: "◕",
-    hint: "Укажите центр и две точки; угол будет больше 180°",
-    shortcut: "4",
     code: "",
   },
   {
@@ -167,10 +168,18 @@ export const TOOLS: ToolDefinition[] = [
   },
   {
     id: "polygon",
-    label: "Многоугольник",
+    label: "Многоугольник без самопересечений",
     icon: "⬠",
     hint: "Выбирайте вершины; кликните по выбранной точке, чтобы замкнуть",
     shortcut: "1",
+    code: "",
+  },
+  {
+    id: "crossedPolygon",
+    label: "Многоугольник с самопересечениями",
+    icon: "☆",
+    hint: "Выбирайте вершины; самопересечения разрешены",
+    shortcut: "2",
     code: "",
   },
   {
@@ -178,7 +187,7 @@ export const TOOLS: ToolDefinition[] = [
     label: "Правильный многоугольник",
     icon: "⬡",
     hint: "Задайте вершины по порядку и замкните выбранной точкой",
-    shortcut: "2",
+    shortcut: "3",
     code: "",
   },
   {
@@ -332,7 +341,6 @@ export const TOOL_GROUPS: ToolGroupDefinition[] = [
       "circle",
       "ellipse",
       "sector",
-      "majorSector",
       "circularSegment",
     ],
   },
@@ -370,7 +378,7 @@ export const TOOL_GROUPS: ToolGroupDefinition[] = [
     icon: "⬠",
     shortcut: "G",
     code: "KeyG",
-    toolIds: ["polygon", "regularPolygon"],
+    toolIds: ["polygon", "crossedPolygon", "regularPolygon"],
   },
   {
     id: "constraints",
@@ -390,6 +398,7 @@ export const TOOL_RAIL_ITEMS: (
   { kind: "tool", id: "marquee" },
   { kind: "tool", id: "point" },
   { kind: "tool", id: "pointOnSegment" },
+  { kind: "tool", id: "intersectionPoint" },
   { kind: "group", id: "linear" },
   { kind: "group", id: "circles" },
   { kind: "group", id: "triangles" },
@@ -418,6 +427,10 @@ const ENGLISH_TOOLS: Record<
     label: "Point on object",
     hint: "Click the boundary of a segment, line, circle, ellipse or shape",
   },
+  intersectionPoint: {
+    label: "Intersection point",
+    hint: "Click near both lines, or select them with two clicks",
+  },
   segment: { label: "Segment", hint: "Select two points" },
   line: { label: "Line", hint: "Select two points" },
   ray: {
@@ -434,23 +447,23 @@ const ENGLISH_TOOLS: Record<
   },
   ellipse: {
     label: "Ellipse",
-    hint: "Select the center and the ends of two semiaxes",
+    hint: "Select two foci and a point on the ellipse",
   },
   sector: {
     label: "Sector",
-    hint: "Select the center and two points on the minor arc",
-  },
-  majorSector: {
-    label: "Major sector",
-    hint: "Select the center and two points; the angle is greater than 180°",
+    hint: "Select the center, then the arc start and clockwise end",
   },
   circularSegment: {
     label: "Circular segment",
     hint: "Select the center and the chord endpoints",
   },
   polygon: {
-    label: "Polygon",
+    label: "Non-self-intersecting polygon",
     hint: "Select vertices; click a selected point to close",
+  },
+  crossedPolygon: {
+    label: "Self-intersecting polygon",
+    hint: "Select vertices; self-intersections are allowed",
   },
   regularPolygon: {
     label: "Regular polygon",
@@ -553,23 +566,27 @@ export function localizeToolGroups(
 export function polygonConstraintExpressions(
   ids: string[],
   regular = false,
+  allowSelfIntersections = false,
 ) {
   if (ids.length < 3) return [];
   const expressions = [`distinct(${ids.join("")})`];
   const edges = ids.map(
     (id, index) => `${id}${ids[(index + 1) % ids.length]}`,
   );
-  for (let first = 0; first < edges.length; first += 1) {
-    for (let second = first + 1; second < edges.length; second += 1) {
-      const adjacent =
-        second === first + 1 ||
-        (first === 0 && second === edges.length - 1);
-      if (!adjacent) {
-        expressions.push(`${edges[first]} ∩ ${edges[second]} = ∅`);
+  if (!regular && !allowSelfIntersections) {
+    for (let first = 0; first < edges.length; first += 1) {
+      for (let second = first + 1; second < edges.length; second += 1) {
+        const adjacent =
+          second === first + 1 ||
+          (first === 0 && second === edges.length - 1);
+        if (!adjacent) {
+          expressions.push(`${edges[first]} ∩ ${edges[second]} = ∅`);
+        }
       }
     }
   }
   if (regular) {
+    expressions.push(`convex(${ids.join("")})`);
     expressions.unshift(edges.join(" = "));
     const angles = ids.map((id, index) => {
       const previous = ids[(index - 1 + ids.length) % ids.length];

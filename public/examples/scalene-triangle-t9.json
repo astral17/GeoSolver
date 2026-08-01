@@ -1,0 +1,31 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "Треугольник по трём сторонам",
+  "points": [
+    { "id": "A", "x": -0.8209860748623448, "y": 0.26806620462519654 },
+    { "id": "B", "x": -0.4495743272811719, "y": 2.2332769601860867 },
+    { "id": "C", "x": -3.164505619935798, "y": 3.5096578109187675 }
+  ],
+  "shapes": [
+    { "id": "shape-t9-abc", "type": "polygon", "points": ["A", "B", "C"], "color": "#5b6df9" }
+  ],
+  "measurements": [],
+  "known": [
+    { "id": 1, "expression": "distinct(ABC)", "enabled": true, "color": "#5b6df9" },
+    { "id": 2, "expression": "AB = 2", "enabled": true, "color": "#ef6b62" },
+    { "id": 3, "expression": "BC = 3", "enabled": true, "color": "#26a880" },
+    { "id": 4, "expression": "CA = 4", "enabled": true, "color": "#f0a11b" }
+  ],
+  "unknown": [
+    { "id": 5, "expression": "∠ABC = ?", "enabled": true, "color": "#5b6df9" },
+    { "id": 6, "expression": "∠BCA = ?", "enabled": true, "color": "#ef6b62" },
+    { "id": 7, "expression": "∠CAB = ?", "enabled": true, "color": "#26a880" }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": { "x": 0, "y": 0, "scale": 74 }
+}

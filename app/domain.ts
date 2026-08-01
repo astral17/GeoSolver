@@ -6,6 +6,8 @@ export type Point = {
   groupId?: string;
 };
 
+export type ArcMode = "minor" | "major" | "clockwise";
+
 export type Shape = {
   id: string;
   type:
@@ -20,7 +22,7 @@ export type Shape = {
     | "polygon";
   points: string[];
   color: string;
-  arc?: "minor" | "major";
+  arc?: ArcMode;
   visible?: boolean;
   groupId?: string;
 };
@@ -57,6 +59,20 @@ export type EditorGroup = {
   anchorSide?: "before" | "after";
 };
 
+export type DistanceObject = {
+  kind:
+    | "point"
+    | "segment"
+    | "line"
+    | "ray"
+    | "circle"
+    | "ellipse"
+    | "sector"
+    | "circularSegment"
+    | "polygon";
+  ids: string[];
+};
+
 export type MathNode =
   | { kind: "number"; value: number }
   | { kind: "variable"; name: string }
@@ -64,6 +80,8 @@ export type MathNode =
       kind: "measure";
       measure:
         | "distance"
+        | "objectDistance"
+        | "intersectionArea"
         | "angle"
         | "area"
         | "perimeter"
@@ -71,6 +89,8 @@ export type MathNode =
         | "y";
       ids: string[];
       geometry?: GeometryKind;
+      objects?: [DistanceObject, DistanceObject];
+      geometries?: [GeometryReference, GeometryReference];
     }
   | { kind: "unary"; operator: "+" | "-"; value: MathNode }
   | {
@@ -86,6 +106,7 @@ export type MathNode =
     };
 
 export type AngleUnit = "degrees" | "radians";
+export type SolverMode = "numerical" | "analytic";
 
 export type FormulaEquation = {
   left: MathNode;
@@ -109,12 +130,42 @@ export type VariableDefinition = {
 };
 
 export type IntersectionObject = {
-  kind: "auto" | "segment" | "line" | "ray" | "circle";
-  ids: [string, string];
+  kind:
+    | "auto"
+    | "segment"
+    | "line"
+    | "ray"
+    | "circle"
+    | "ellipse"
+    | "sector"
+    | "circularSegment"
+    | "polygon";
+  ids: string[];
+};
+
+export type GeometryReference = {
+  kind: GeometryKind;
+  ids: string[];
+};
+
+export type ContainmentReference = {
+  kind: GeometryKind | "point";
+  ids: string[];
+};
+
+export type FigureContainment = {
+  inner: ContainmentReference;
+  outer: GeometryReference;
+};
+
+export type DisjointDefinition = {
+  first: IntersectionObject;
+  second: IntersectionObject;
 };
 
 export type IntersectionDefinition = {
-  point: string;
+  points: string[];
+  relation: "equals" | "contains";
   first: IntersectionObject;
   second: IntersectionObject;
 };
@@ -133,8 +184,10 @@ export type ParsedConstraint = {
     | "onArc"
     | "onEllipse"
     | "distinctPoints"
+    | "convex"
     | "nonIntersecting"
-    | "intersectionPoint"
+    | "insideFigure"
+    | "intersectionSet"
     | "definition"
     | "formula"
     | "inequality";
@@ -146,15 +199,40 @@ export type ParsedConstraint = {
   comparisons?: FormulaComparison[];
   definition?: VariableDefinition;
   intersection?: IntersectionDefinition;
+  disjoint?: DisjointDefinition;
+  containment?: FigureContainment;
   source?: string;
 };
 
 export type UnknownTarget = {
-  kind: "distance" | "angle" | "area" | "perimeter" | "formula";
+  kind:
+    | "distance"
+    | "angle"
+    | "area"
+    | "perimeter"
+    | "formula"
+    | "predicate";
   ids: string[];
   label: string;
   formula?: MathNode;
   geometry?: GeometryKind;
+  predicate?: ParsedConstraint;
+};
+
+export type LocalizedText = { ru: string; en: string };
+
+export type SolutionStep = {
+  title: LocalizedText;
+  detail: LocalizedText;
+  expression?: string;
+};
+
+export type ProofResult = {
+  label: string;
+  verdict: "proved" | "disproved" | "undetermined";
+  evidence: "direct" | "analytic" | "counterexample" | "unsupported";
+  detail: LocalizedText;
+  steps: SolutionStep[];
 };
 
 export type SolveResult = {
@@ -163,7 +241,27 @@ export type SolveResult = {
   elapsed: number;
   iterations: number;
   timedOut: boolean;
-  values: { label: string; value: number; suffix: string }[];
+  values: {
+    label: string;
+    value: number;
+    suffix: string;
+    exact?: string;
+    alternatives?: { value: number; exact?: string }[];
+    steps?: SolutionStep[];
+  }[];
+  statements?: ProofResult[];
+  mode?: SolverMode;
+  steps?: SolutionStep[];
+  goalSummary?: {
+    total: number;
+    completed: number;
+    unresolved: string[];
+  };
+  drawing?: {
+    status: "rebuilt" | "approximate" | "unchanged";
+    residual: number;
+    timedOut: boolean;
+  };
   issues: { expression: string; error: number }[];
 };
 
@@ -225,6 +323,7 @@ export type ImportedProject = {
   solverEpsilon: string;
   solverMaxIterations: string;
   solverTimeLimitMs: string;
+  solverMode: SolverMode;
   view: CanvasView | null;
 };
 

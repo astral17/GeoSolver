@@ -1,6 +1,6 @@
 {
   "format": "geosolver",
-  "version": 1,
+  "version": 2,
   "projectTitle": "Прямоугольный треугольник 3–4–5",
   "points": [
     { "id": "A", "x": -2, "y": -1.5 },

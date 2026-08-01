@@ -987,9 +987,12 @@ export function ObjectsSection({
                     onUpdateShape(shape.id, {
                       type: nextType,
                       arc:
-                        nextType === "sector" ||
-                        nextType === "circularSegment"
-                          ? shape.arc ?? "minor"
+                        nextType === "sector"
+                          ? "clockwise"
+                          : nextType === "circularSegment"
+                            ? shape.arc === "major"
+                              ? "major"
+                              : "minor"
                           : undefined,
                     });
                   }}
@@ -1052,14 +1055,50 @@ export function ObjectsSection({
                 >
                   ×
                 </button>
-                {(shape.type === "sector" ||
-                  shape.type === "circularSegment") && (
+                {shape.type === "sector" && (
+                  <button
+                    type="button"
+                    className="object-arc-direction"
+                    name={`shape-arc-${shape.id}`}
+                    data-object-key={`shape-${shape.id}`}
+                    data-object-column="arc"
+                    aria-label={t(
+                      "Поменять начало и конец сектора",
+                      "Swap the sector start and end",
+                    )}
+                    title={t(
+                      "По часовой стрелке; нажмите для дополнительного сектора",
+                      "Clockwise; click for the complementary sector",
+                    )}
+                    onKeyDown={(event) =>
+                      handleObjectKeyDown(
+                        "shape",
+                        shape.id,
+                        "arc",
+                        event,
+                      )
+                    }
+                    onClick={() =>
+                      onUpdateShape(shape.id, {
+                        points: [
+                          shape.points[0],
+                          shape.points[2],
+                          shape.points[1],
+                        ],
+                        arc: "clockwise",
+                      })
+                    }
+                  >
+                    ↻
+                  </button>
+                )}
+                {shape.type === "circularSegment" && (
                   <select
                     className="object-arc-select"
                     name={`shape-arc-${shape.id}`}
                     data-object-key={`shape-${shape.id}`}
                     data-object-column="arc"
-                    value={shape.arc ?? "minor"}
+                    value={shape.arc === "major" ? "major" : "minor"}
                     aria-label={t("Тип дуги", "Arc type")}
                     onKeyDown={(event) =>
                       handleObjectKeyDown(

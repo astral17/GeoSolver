@@ -1,6 +1,6 @@
 {
   "format": "geosolver",
-  "version": 1,
+  "version": 2,
   "projectTitle": "Площадь квадрата",
   "points": [
     { "id": "A", "x": -3, "y": -3 },

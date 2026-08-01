@@ -1,1 +1,43 @@
-{"format":"geosolver","version":1,"projectTitle":"Перпендикуляры в четверти круга","points":[{"id":"A","x":-3.689087580306882,"y":-0.9070696701417411},{"id":"B","x":-2.536618118525206,"y":3.9576381185232705},{"id":"C","x":1.1759328574501193,"y":-2.0595883476218644},{"id":"D","x":-2.771713852384246,"y":2.973192278616223},{"id":"E","x":0.17068211340439132,"y":2.2703667962482212},{"id":"F","x":-3.0009892739535884,"y":1.9873758779290118},{"id":"G","x":0.8959932667646174,"y":1.0837873139410512}],"shapes":[{"id":"shape-1785269140809","type":"sector","points":["A","B","C"],"color":"#5b6df9","arc":"minor"},{"id":"shape-1785269604513","type":"segment","points":["D","E"],"color":"#ef6b62"},{"id":"shape-1785269606153","type":"segment","points":["F","G"],"color":"#26a880"}],"measurements":[],"known":[{"id":1785269140808,"expression":"AB = AC","enabled":true,"color":"#5b6df9"},{"id":1785269140809,"expression":"distinct(ABC)","enabled":true,"color":"#ef6b62"},{"id":1785269140810,"expression":"∠BAC = 90°","enabled":true,"color":"#26a880"},{"id":1785269140811,"expression":"AC = 5","enabled":true,"color":"#f0a11b"},{"id":1785269140812,"expression":"","enabled":true,"color":"#8c5ad7"},{"id":1785269529297,"expression":"D ∈ AB","enabled":true,"color":"#5b6df9"},{"id":1785269592897,"expression":"E ∈ circle(AB)","enabled":true,"color":"#ef6b62"},{"id":1785269597953,"expression":"F ∈ AB","enabled":true,"color":"#26a880"},{"id":1785269599081,"expression":"G ∈ circle(AB)","enabled":true,"color":"#f0a11b"},{"id":1785269599082,"expression":"BD = DF","enabled":true,"color":"#8c5ad7"},{"id":1785269599083,"expression":"∠BDE = 90°","enabled":true,"color":"#5b6df9"},{"id":1785269599084,"expression":"∠DFG = 90°","enabled":true,"color":"#ef6b62"},{"id":1785269599085,"expression":"FG = 4","enabled":true,"color":"#26a880"}],"unknown":[{"id":1785269599086,"expression":"DE = ?","enabled":true,"color":"#5b6df9"}],"solverEpsilon":"1e-6","view":{"x":134.94403815943758,"y":147.81522414212128,"scale":140.18414095285306}}
+{
+  "format": "geosolver",
+  "version": 3,
+  "projectTitle": "Перпендикуляры в четверти круга",
+  "points": [
+    { "id": "A", "x": -3.689087580306882, "y": -0.9070696701417411 },
+    { "id": "B", "x": -2.536618118525206, "y": 3.9576381185232705 },
+    { "id": "C", "x": 1.1759328574501193, "y": -2.0595883476218644 },
+    { "id": "D", "x": -2.771713852384246, "y": 2.973192278616223 },
+    { "id": "E", "x": 0.17068211340439132, "y": 2.2703667962482212 },
+    { "id": "F", "x": -3.0009892739535884, "y": 1.9873758779290118 },
+    { "id": "G", "x": 0.8959932667646174, "y": 1.0837873139410512 }
+  ],
+  "shapes": [
+    { "id": "shape-1785269140809", "type": "sector", "points": ["A", "B", "C"], "color": "#5b6df9", "arc": "minor" },
+    { "id": "shape-1785269604513", "type": "segment", "points": ["D", "E"], "color": "#ef6b62" },
+    { "id": "shape-1785269606153", "type": "segment", "points": ["F", "G"], "color": "#26a880" }
+  ],
+  "measurements": [],
+  "known": [
+    { "id": 1785269140808, "expression": "AB = AC", "enabled": true, "color": "#5b6df9" },
+    { "id": 1785269140809, "expression": "distinct(ABC)", "enabled": true, "color": "#ef6b62" },
+    { "id": 1785269140810, "expression": "∠BAC = 90°", "enabled": true, "color": "#26a880" },
+    { "id": 1785269140811, "expression": "AC = 5", "enabled": true, "color": "#f0a11b" },
+    { "id": 1785269529297, "expression": "D ∈ AB", "enabled": true, "color": "#5b6df9" },
+    { "id": 1785269592897, "expression": "E ∈ arc(ABC)", "enabled": true, "color": "#ef6b62" },
+    { "id": 1785269597953, "expression": "F ∈ AB", "enabled": true, "color": "#26a880" },
+    { "id": 1785269599081, "expression": "G ∈ arc(ABC)", "enabled": true, "color": "#f0a11b" },
+    { "id": 1785269599082, "expression": "BD = DF", "enabled": true, "color": "#8c5ad7" },
+    { "id": 1785269599083, "expression": "∠BDE = 90°", "enabled": true, "color": "#5b6df9" },
+    { "id": 1785269599084, "expression": "∠DFG = 90°", "enabled": true, "color": "#ef6b62" },
+    { "id": 1785269599085, "expression": "FG = 4", "enabled": true, "color": "#26a880" }
+  ],
+  "unknown": [
+    { "id": 1785269599086, "expression": "DE = ?", "enabled": true, "color": "#5b6df9" }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "numerical",
+  "view": { "x": 134.94403815943758, "y": 147.81522414212128, "scale": 140.18414095285306 }
+}

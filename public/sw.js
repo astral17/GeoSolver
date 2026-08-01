@@ -1,6 +1,6 @@
 /* global self, caches, fetch */
 
-const CACHE_NAME = "geosolver-v0.2.0";
+const CACHE_NAME = "geosolver-v0.3.0";
 const APP_ROOT = new URL("./", self.location.href);
 const PRECACHE = [
   APP_ROOT.href,

@@ -1414,6 +1414,12 @@ html[data-theme="dark"] .method-pills > span {
   color: #c0c6d0;
 }
 
+html[data-theme="dark"] .equation-count,
+html[data-theme="dark"] .result-state small,
+html[data-theme="dark"] .solver-footer > small {
+  color: #aeb7c4;
+}
+
 html[data-theme="dark"] .result-card {
   border-color: #366d5b;
   background: #1c312b;
@@ -1434,6 +1440,59 @@ html[data-theme="dark"] .approximate .result-state {
 
 html[data-theme="dark"] .result-values span {
   color: #b4c1bc;
+}
+
+html[data-theme="dark"] .exact-approximation,
+html[data-theme="dark"] .proof-result > small,
+html[data-theme="dark"] .analytic-steps li small {
+  color: #c2cad5;
+}
+
+html[data-theme="dark"] .proof-result,
+html[data-theme="dark"] .analytic-steps {
+  border-color: #3d4652;
+  background: #242a33;
+}
+
+html[data-theme="dark"] .analytic-steps > b,
+html[data-theme="dark"] .analytic-steps li {
+  color: #d6dbe4;
+}
+
+html[data-theme="dark"] .analytic-steps li {
+  border-color: #363e49;
+}
+
+html[data-theme="dark"] .analytic-steps li::before {
+  border-color: #4a5565;
+  color: #c4ccd8;
+}
+
+html[data-theme="dark"] .analytic-steps li code {
+  border-color: #48546a;
+  background: #11161e;
+  color: #c1c9ff;
+}
+
+html[data-theme="dark"] .goal-progress,
+html[data-theme="dark"] .drawing-progress {
+  border-color: #3d4652;
+  background: #242a33;
+}
+
+html[data-theme="dark"] .goal-progress.incomplete {
+  border-color: #765f33;
+  background: #352d1f;
+}
+
+html[data-theme="dark"] .goal-progress.incomplete b,
+html[data-theme="dark"] .goal-progress li code,
+html[data-theme="dark"] .drawing-progress.approximate span {
+  color: #f0bb5a;
+}
+
+html[data-theme="dark"] .goal-progress ul {
+  border-color: #655230;
 }
 
 html[data-theme="dark"] .result-state b,

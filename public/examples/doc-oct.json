@@ -1,0 +1,38 @@
+{
+  "format": "geosolver",
+  "version": 3,
+  "projectTitle": "Doc Oct — правильный восьмиугольник",
+  "points": [
+    { "id": "A", "x": -17.12281717672855, "y": 10.024184088035083 },
+    { "id": "B", "x": -7.964075937479257, "y": 17.106231053123746 },
+    { "id": "C", "x": 6.146606983425072, "y": 18.411348434605348 },
+    { "id": "D", "x": 18.90687046202376, "y": 8.135617601567528 },
+    { "id": "E", "x": 17.657716900770367, "y": -10.804481556302584 },
+    { "id": "F", "x": 3.4628460689375506, "y": -20.96301210388318 },
+    { "id": "G", "x": -12.606238584164062, "y": -17.739086309724698 },
+    { "id": "H", "x": -21.100850334598007, "y": -4.629156746001664 },
+    { "id": "O", "x": 0.0003380093118241155, "y": -0.0009736097302236251 }
+  ],
+  "shapes": [
+    { "id": "doc-oct-polygon", "type": "polygon", "points": ["A", "B", "C", "D", "E", "F", "G", "H"], "color": "#5b6df9" }
+  ],
+  "measurements": [],
+  "known": [
+    { "id": 1, "expression": "∠HAB = ∠ABC = ∠BCD = ∠CDE = ∠DEF = ∠EFG = ∠FGH = ∠GHA", "enabled": true, "color": "#5b6df9" },
+    { "id": 2, "expression": "AB = BC = CD = DE = EF = FG = GH = HA", "enabled": true, "color": "#ef6b62" },
+    { "id": 3, "expression": "distinct(ABCDEFGH)", "enabled": true, "color": "#26a880" },
+    { "id": 4, "expression": "convex(ABCDEFGH)", "enabled": true, "color": "#f0a11b" },
+    { "id": 5, "expression": "S(ABED) = P(ABCDEFGH)", "enabled": true, "color": "#f0a11b" },
+    { "id": 6, "expression": "O = (0; 0)", "enabled": true, "color": "#5b6df9" },
+    { "id": 7, "expression": "OA = OB = OC = OD = OE = OF = OG = OH", "enabled": true, "color": "#5b6df9" }
+  ],
+  "unknown": [
+    { "id": 8, "expression": "P(ABCDEFGH) = ?", "enabled": true, "color": "#5b6df9" },
+    { "id": 9, "expression": "S(ABED) = ?", "enabled": true, "color": "#ef6b62" }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "numerical"
+}

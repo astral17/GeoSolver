@@ -1,12 +1,17 @@
 import {
   useCallback,
+  useEffect,
+  useRef,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
 } from "react";
 import type React from "react";
 
-import type { CanvasObjectHit } from "./canvas-hit-testing";
+import type {
+  CanvasIntersectionObjectHit,
+  CanvasObjectHit,
+} from "./canvas-hit-testing";
 import type {
   CanvasDrag,
   CanvasView,
@@ -14,6 +19,7 @@ import type {
   EditorGroup,
   ExpressionRow,
   Measurement,
+  IntersectionObject,
   ParsedConstraint,
   Point,
   Shape,
@@ -29,6 +35,7 @@ import {
   projectPointToEllipse,
   projectPointToSegment,
 } from "./geometry";
+import { locateObjectIntersections } from "./expressions";
 import { cloneSnapshot, COLORS } from "./project-state";
 import {
   polygonConstraintExpressions,
@@ -87,6 +94,10 @@ type CanvasInteractionsOptions = {
   findPointAt: (x: number, y: number) => string | null;
   findPointsAt: (x: number, y: number) => string[];
   findObjectAt: (x: number, y: number) => CanvasObjectHit;
+  findIntersectionObjectsAt: (
+    x: number,
+    y: number,
+  ) => CanvasIntersectionObjectHit[];
   screenToWorld: (x: number, y: number) => { x: number; y: number };
   worldToScreen: (point: Point) => { x: number; y: number };
   markDirty: () => void;
@@ -132,6 +143,7 @@ export function useCanvasInteractions(options: CanvasInteractionsOptions) {
     findPointAt,
     findPointsAt,
     findObjectAt,
+    findIntersectionObjectsAt,
     screenToWorld,
     worldToScreen,
     markDirty,
@@ -140,6 +152,20 @@ export function useCanvasInteractions(options: CanvasInteractionsOptions) {
     minViewScale,
     maxViewScale,
   } = options;
+    const pendingIntersectionRef = useRef<CanvasIntersectionObjectHit | null>(
+      null,
+    );
+
+    const resetPendingIntersection = useCallback(() => {
+      pendingIntersectionRef.current = null;
+      setCanvasNotice(null);
+    }, [setCanvasNotice]);
+
+    useEffect(() => {
+      if (activeTool !== "intersectionPoint") {
+        resetPendingIntersection();
+      }
+    }, [activeTool, resetPendingIntersection]);
     const getOrCreatePoint = useCallback(
       (screenX: number, screenY: number) => {
         const hit = findPointAt(screenX, screenY);
@@ -200,7 +226,6 @@ export function useCanvasInteractions(options: CanvasInteractionsOptions) {
         } else if (
           activeTool === "ellipse" ||
           activeTool === "sector" ||
-          activeTool === "majorSector" ||
           activeTool === "circularSegment"
         ) {
           if (selection.length === 3) {
@@ -225,15 +250,12 @@ export function useCanvasInteractions(options: CanvasInteractionsOptions) {
                   points: selection,
                   color: COLORS[current.length % COLORS.length],
                   arc:
-                    activeTool === "majorSector" ? "major" : "minor",
+                    activeTool === "sector" ? "clockwise" : "minor",
                 },
               ]);
               addConstraints(
                 activeTool === "ellipse"
-                  ? [
-                      `∠${first}${center}${second} = 90°`,
-                      `distinct(${selection.join("")})`,
-                    ]
+                  ? [`distinct(${selection.join("")})`]
                   : [
                       `${center}${first} = ${center}${second}`,
                       `distinct(${selection.join("")})`,
@@ -271,6 +293,7 @@ export function useCanvasInteractions(options: CanvasInteractionsOptions) {
           }
         } else if (
           activeTool === "polygon" ||
+          activeTool === "crossedPolygon" ||
           activeTool === "regularPolygon"
         ) {
           if (pendingPoints.includes(id)) {
@@ -288,6 +311,7 @@ export function useCanvasInteractions(options: CanvasInteractionsOptions) {
                 polygonConstraintExpressions(
                   pendingPoints,
                   activeTool === "regularPolygon",
+                  activeTool === "crossedPolygon",
                 ),
               );
               setPendingPoints([]);
@@ -650,6 +674,99 @@ export function useCanvasInteractions(options: CanvasInteractionsOptions) {
         setPoints((current) => [...current, { id, x: world.x, y: world.y }]);
         setSelectedPoint(id);
         setSelectedPoints([id]);
+        markDirty();
+        return;
+      }
+      if (activeTool === "intersectionPoint") {
+        const hits = findIntersectionObjectsAt(position.x, position.y);
+        const pending = pendingIntersectionRef.current;
+        const differentFrom = (
+          candidate: CanvasIntersectionObjectHit,
+          first: CanvasIntersectionObjectHit,
+        ) =>
+          candidate.shapeId !== first.shapeId ||
+          candidate.startId !== first.startId ||
+          candidate.endId !== first.endId;
+        const first = pending ?? hits[0];
+        const second = first
+          ? hits.find((candidate) => differentFrom(candidate, first))
+          : undefined;
+        if (!first) {
+          setCanvasNotice(
+            t("Кликните ближе к объекту", "Click closer to an object"),
+          );
+          window.setTimeout(() => setCanvasNotice(null), 1800);
+          return;
+        }
+        if (!second) {
+          pendingIntersectionRef.current = first;
+          setCanvasNotice(
+            t("Выберите второй объект", "Select the second object"),
+          );
+          return;
+        }
+        const map = pointMap(points);
+        const toIntersectionObject = (
+          hit: CanvasIntersectionObjectHit,
+        ): IntersectionObject => ({
+          kind: hit.kind,
+          ids: [hit.startId, hit.endId, hit.thirdId].filter(
+            (id): id is string => Boolean(id),
+          ),
+        });
+        const located = locateObjectIntersections(
+          toIntersectionObject(first),
+          toIntersectionObject(second),
+          map,
+          shapes,
+        );
+        const intersections = located.continuous ? [] : located.points;
+        const clickWorld = screenToWorld(position.x, position.y);
+        const intersection = intersections
+          .slice()
+          .sort(
+            (firstPoint, secondPoint) =>
+              Math.hypot(
+                firstPoint.x - clickWorld.x,
+                firstPoint.y - clickWorld.y,
+              ) -
+              Math.hypot(
+                secondPoint.x - clickWorld.x,
+                secondPoint.y - clickWorld.y,
+              ),
+          )[0];
+        if (!intersection) {
+          pendingIntersectionRef.current = null;
+          setCanvasNotice(
+            t(
+              "У выбранных объектов нет единственной точки пересечения",
+              "The selected objects have no single intersection point",
+            ),
+          );
+          window.setTimeout(() => setCanvasNotice(null), 2200);
+          return;
+        }
+        const id = nextPointId(points);
+        setPoints((current) => [
+          ...current,
+          { id, x: intersection.x, y: intersection.y },
+        ]);
+        setKnown((current) => [
+          ...current,
+          {
+            id: Date.now(),
+            expression: `${id} ${intersections.length === 1 ? "=" : "∈"} ${first.objectName} ∩ ${second.objectName}`,
+            enabled: true,
+            color: COLORS[current.length % COLORS.length],
+          },
+        ]);
+        pendingIntersectionRef.current = null;
+        setSelectedPoint(id);
+        setSelectedPoints([id]);
+        setCanvasNotice(
+          t(`Создана точка ${id}`, `Point ${id} created`),
+        );
+        window.setTimeout(() => setCanvasNotice(null), 1600);
         markDirty();
         return;
       }
@@ -1109,5 +1226,6 @@ export function useCanvasInteractions(options: CanvasInteractionsOptions) {
     handlePointerMove,
     handlePointerUp,
     handlePointerCancel,
+    resetPendingIntersection,
   };
 }

@@ -1,4 +1,5 @@
 import type { Locale } from "./i18n";
+import type { SolverMode } from "./domain";
 import { localText } from "./i18n";
 
 type SettingsDialogProps = {
@@ -8,6 +9,7 @@ type SettingsDialogProps = {
   showAngles: boolean;
   showAreaConstraints: boolean;
   showToolHint: boolean;
+  solverMode: SolverMode;
   solverEpsilonInput: string;
   solverEpsilonValid: boolean;
   solverMaxIterationsInput: string;
@@ -22,6 +24,7 @@ type SettingsDialogProps = {
   onShowAnglesChange: (value: boolean) => void;
   onShowAreaConstraintsChange: (value: boolean) => void;
   onShowToolHintChange: (value: boolean) => void;
+  onSolverModeChange: (mode: SolverMode) => void;
   onSolverEpsilonInputChange: (value: string) => void;
   onSolverEpsilonInputBlur: () => void;
   onSolverMaxIterationsInputChange: (value: string) => void;
@@ -42,6 +45,7 @@ export function SettingsDialog({
   showAngles,
   showAreaConstraints,
   showToolHint,
+  solverMode,
   solverEpsilonInput,
   solverEpsilonValid,
   solverMaxIterationsInput,
@@ -56,6 +60,7 @@ export function SettingsDialog({
   onShowAnglesChange,
   onShowAreaConstraintsChange,
   onShowToolHintChange,
+  onSolverModeChange,
   onSolverEpsilonInputChange,
   onSolverEpsilonInputBlur,
   onSolverMaxIterationsInputChange,
@@ -256,6 +261,40 @@ export function SettingsDialog({
 
           <section className="settings-section">
             <h3>{t("Вычисления", "Calculations")}</h3>
+            <fieldset className="settings-fieldset">
+              <legend>{t("Решатель", "Solver")}</legend>
+              <div className="settings-segmented">
+                <button
+                  type="button"
+                  className={solverMode === "numerical" ? "active" : ""}
+                  aria-pressed={solverMode === "numerical"}
+                  onClick={() => onSolverModeChange("numerical")}
+                >
+                  {t("Численный", "Numerical")}
+                </button>
+                <button
+                  type="button"
+                  className={solverMode === "analytic" ? "active" : ""}
+                  aria-pressed={solverMode === "analytic"}
+                  onClick={() => onSolverModeChange("analytic")}
+                >
+                  {t("Аналитический", "Analytical")}
+                </button>
+              </div>
+              <small>
+                {solverMode === "analytic"
+                  ? t(
+                      "Точные ответы и краткие доказательства для поддерживаемых задач; после вывода координаты чертежа перестраиваются численно.",
+                      "Exact answers and short proofs for supported problems; drawing coordinates are rebuilt numerically afterwards.",
+                    )
+                  : t(
+                      "Ищет координаты для общей системы ограничений.",
+                      "Searches for coordinates satisfying the general constraint system.",
+                    )}
+              </small>
+            </fieldset>
+            {solverMode === "numerical" && (
+              <>
             <div className="settings-field">
               <div>
                 <label htmlFor="settings-solver-epsilon">
@@ -282,6 +321,9 @@ export function SettingsDialog({
                 onBlur={onSolverEpsilonInputBlur}
               />
             </div>
+
+              </>
+            )}
 
             <div className="settings-field">
               <div>
@@ -319,8 +361,12 @@ export function SettingsDialog({
                 </label>
                 <small>
                   {t(
-                    "Поиск вернёт лучшее найденное решение по истечении лимита",
-                    "The search returns its best result when the limit expires",
+                    solverMode === "analytic"
+                      ? "Общий лимит точного вывода и перестройки чертежа"
+                      : "Поиск вернёт лучшее найденное решение по истечении лимита",
+                    solverMode === "analytic"
+                      ? "Total limit for exact inference and drawing reconstruction"
+                      : "The search returns its best result when the limit expires",
                   )}
                 </small>
               </div>

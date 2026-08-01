@@ -1,0 +1,33 @@
+{
+  "format": "geosolver",
+  "version": 3,
+  "projectTitle": "t2 — медиана и площадь",
+  "points": [
+    { "id": "A", "x": -3.691366433067379, "y": -0.8227267083599317 },
+    { "id": "B", "x": 0.8742163652992343, "y": 3.0702738967370595 },
+    { "id": "C", "x": 6.064883838749729, "y": -3.0171698344174778 },
+    { "id": "D", "x": 1.1867587028317177, "y": -1.9199482713941276 }
+  ],
+  "shapes": [
+    { "id": "shape-triangle", "type": "polygon", "points": ["A", "B", "C"], "color": "#5b6df9" },
+    { "id": "shape-median", "type": "segment", "points": ["B", "D"], "color": "#ef6b62" }
+  ],
+  "measurements": [],
+  "known": [
+    { "id": 1, "expression": "distinct(ABC)", "enabled": true, "color": "#5b6df9" },
+    { "id": 2, "expression": "D ∈ CA", "enabled": true, "color": "#ef6b62" },
+    { "id": 3, "expression": "AB = 6", "enabled": true, "color": "#26a880" },
+    { "id": 4, "expression": "BD = 5", "enabled": true, "color": "#f0a11b" },
+    { "id": 5, "expression": "BC = 8", "enabled": true, "color": "#8c5ad7" },
+    { "id": 6, "expression": "AD = DC", "enabled": true, "color": "#5b6df9" }
+  ],
+  "unknown": [
+    { "id": 7, "expression": "S(ABC) = ?", "enabled": true, "color": "#5b6df9" }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": { "x": 0, "y": 0, "scale": 74 }
+}
