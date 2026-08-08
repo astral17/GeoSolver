@@ -3,6 +3,7 @@
 import {
   useState,
   type ButtonHTMLAttributes,
+  type CSSProperties,
 } from "react";
 import type { EditorGroup } from "./domain";
 
@@ -100,85 +101,112 @@ export function partitionGroupedItems<T extends { groupId?: string }>(
 }
 
 export function buildGroupedEntries<
-  T extends { id: string | number; groupId?: string },
+  T extends {
+    id: string | number;
+    groupId?: string;
+    editorOrder?: number;
+  },
 >(
   items: T[],
   groups: EditorGroup[],
 ) {
   const groupById = new Map(groups.map((group) => [group.id, group]));
-  const populatedGroupIds = new Set(
-    items.flatMap((item) => (item.groupId ? [item.groupId] : [])),
+  const itemIndex = new Map(
+    items.map((item, index) => [String(item.id), index]),
   );
-  const emittedGroups = new Set<string>();
+  const validParent = (group: EditorGroup) => {
+    const seen = new Set([group.id]);
+    let parentId = group.parentGroupId;
+    while (parentId) {
+      if (seen.has(parentId)) return undefined;
+      seen.add(parentId);
+      const parent = groupById.get(parentId);
+      if (!parent || parent.section !== group.section) return undefined;
+      parentId = parent.parentGroupId;
+    }
+    return group.parentGroupId;
+  };
+  const parentByGroup = new Map(
+    groups.map((group) => [group.id, validParent(group)]),
+  );
   const entries: (
-    | { kind: "item"; item: T }
-    | { kind: "group"; group: EditorGroup; count: number }
-    | { kind: "groupEnd"; group: EditorGroup }
+    | { kind: "item"; item: T; depth: number }
+    | { kind: "group"; group: EditorGroup; count: number; depth: number }
+    | { kind: "groupEnd"; group: EditorGroup; depth: number }
   )[] = [];
-  const emitEmptyGroups = (
-    candidates: EditorGroup[],
-    predicate: (group: EditorGroup) => boolean,
-  ) => {
-    candidates.forEach((candidate) => {
-      if (
-        emittedGroups.has(candidate.id) ||
-        populatedGroupIds.has(candidate.id) ||
-        !predicate(candidate)
-      ) {
+  const descendants = (groupId: string): string[] => [
+    groupId,
+    ...groups
+      .filter((group) => parentByGroup.get(group.id) === groupId)
+      .flatMap((group) => descendants(group.id)),
+  ];
+  const descendantCount = (groupId: string) => {
+    const ids = new Set(descendants(groupId));
+    return items.filter((item) => item.groupId && ids.has(item.groupId)).length;
+  };
+  const firstDescendantIndex = (groupId: string) => {
+    const ids = new Set(descendants(groupId));
+    return items.reduce(
+      (minimum, item, index) =>
+        item.groupId && ids.has(item.groupId)
+          ? Math.min(minimum, index)
+          : minimum,
+      Number.POSITIVE_INFINITY,
+    );
+  };
+  const emitContainer = (parentGroupId: string | undefined, depth: number) => {
+    const directItems = items.filter((item) => {
+      const itemGroup = item.groupId ? groupById.get(item.groupId) : undefined;
+      const normalizedGroupId = itemGroup ? item.groupId : undefined;
+      return normalizedGroupId === parentGroupId;
+    });
+    const childGroups = groups.filter(
+      (group) => parentByGroup.get(group.id) === parentGroupId,
+    );
+    const tokens = [
+      ...directItems.map((item) => ({
+        kind: "item" as const,
+        item,
+        order:
+          item.editorOrder ??
+          itemIndex.get(String(item.id)) ??
+          Number.POSITIVE_INFINITY,
+        tie: 1,
+      })),
+      ...childGroups.map((group, index) => {
+        const anchorIndex = group.anchorId
+          ? itemIndex.get(group.anchorId)
+          : undefined;
+        return {
+          kind: "group" as const,
+          group,
+          order:
+            group.editorOrder !== undefined
+              ? group.editorOrder
+              : anchorIndex !== undefined
+              ? anchorIndex + (group.anchorSide === "after" ? 0.25 : -0.25)
+              : firstDescendantIndex(group.id),
+          tie: groups.indexOf(group) + index / 1000,
+        };
+      }),
+    ].sort((first, second) =>
+      first.order === second.order
+        ? first.tie - second.tie
+        : first.order - second.order,
+    );
+    tokens.forEach((token) => {
+      if (token.kind === "item") {
+        entries.push({ kind: "item", item: token.item, depth });
         return;
       }
-      entries.push({ kind: "group", group: candidate, count: 0 });
-      emittedGroups.add(candidate.id);
+      const count = descendantCount(token.group.id);
+      entries.push({ kind: "group", group: token.group, count, depth });
+      if (token.group.collapsed) return;
+      emitContainer(token.group.id, depth + 1);
+      entries.push({ kind: "groupEnd", group: token.group, depth });
     });
   };
-  const emitAnchoredGroups = (
-    itemId: string | number,
-    side: "before" | "after",
-  ) => {
-    const anchorId = String(itemId);
-    emitEmptyGroups(
-      groups,
-      (group) =>
-        group.anchorId === anchorId &&
-        (group.anchorSide ?? "before") === side,
-    );
-  };
-
-  for (const item of items) {
-    const group = item.groupId ? groupById.get(item.groupId) : undefined;
-    if (!group) {
-      emitAnchoredGroups(item.id, "before");
-      entries.push({ kind: "item", item });
-      emitAnchoredGroups(item.id, "after");
-      continue;
-    }
-    if (emittedGroups.has(group.id)) continue;
-
-    const groupIndex = groups.findIndex((candidate) => candidate.id === group.id);
-    emitEmptyGroups(
-      groups.slice(0, groupIndex),
-      (candidate) => !candidate.anchorId,
-    );
-    const groupItems = items.filter((candidate) => candidate.groupId === group.id);
-    entries.push({ kind: "group", group, count: groupItems.length });
-    if (!group.collapsed) {
-      entries.push(
-        ...groupItems.map((groupItem) => ({
-          kind: "item" as const,
-          item: groupItem,
-        })),
-      );
-    }
-    if (!group.collapsed && groupItems.length > 0) {
-      entries.push({ kind: "groupEnd", group });
-    }
-    emittedGroups.add(group.id);
-  }
-
-  for (const group of groups) {
-    if (emittedGroups.has(group.id)) continue;
-    entries.push({ kind: "group", group, count: 0 });
-  }
+  emitContainer(undefined, 0);
 
   return entries;
 }
@@ -192,6 +220,289 @@ export function visibleGroupedItems<
   return buildGroupedEntries(items, groups).flatMap((entry) =>
     entry.kind === "item" ? [entry.item] : [],
   );
+}
+
+type OrderedEditorItem = {
+  id: string | number;
+  groupId?: string;
+  editorOrder?: number;
+};
+
+type EditorToken =
+  | { kind: "item"; id: string; order: number }
+  | { kind: "group"; id: string; order: number };
+
+const tokenKey = (token: Pick<EditorToken, "kind" | "id">) =>
+  `${token.kind}:${token.id}`;
+
+export function materializeEditorOrder<T extends OrderedEditorItem>(
+  items: T[],
+  groups: EditorGroup[],
+): { items: T[]; groups: EditorGroup[] } {
+  const itemOrder = new Map<string, number>();
+  const groupOrder = new Map<string, number>();
+  const nextByParent = new Map<string, number>();
+  const nextOrder = (parentGroupId: string | undefined) => {
+    const key = parentGroupId ?? "";
+    const order = nextByParent.get(key) ?? 0;
+    nextByParent.set(key, order + 1);
+    return order;
+  };
+  buildGroupedEntries(
+    items,
+    groups.map((group) => ({ ...group, collapsed: false })),
+  ).forEach((entry) => {
+    if (entry.kind === "item") {
+      itemOrder.set(
+        String(entry.item.id),
+        nextOrder(entry.item.groupId),
+      );
+    } else if (entry.kind === "group") {
+      groupOrder.set(
+        entry.group.id,
+        nextOrder(entry.group.parentGroupId),
+      );
+    }
+  });
+  return {
+    items: items.map(
+      (item) =>
+        ({
+          ...item,
+          editorOrder: itemOrder.get(String(item.id)) ?? item.editorOrder ?? 0,
+        }) as T,
+    ),
+    groups: groups.map((group) => ({
+      ...group,
+      editorOrder: groupOrder.get(group.id) ?? group.editorOrder ?? 0,
+      anchorId: undefined,
+      anchorSide: undefined,
+    })),
+  };
+}
+
+function containerTokens<T extends OrderedEditorItem>(
+  items: T[],
+  groups: EditorGroup[],
+  parentGroupId: string | undefined,
+) {
+  return [
+    ...items
+      .filter((item) => item.groupId === parentGroupId)
+      .map((item) => ({
+        kind: "item" as const,
+        id: String(item.id),
+        order: item.editorOrder ?? 0,
+      })),
+    ...groups
+      .filter((group) => group.parentGroupId === parentGroupId)
+      .map((group) => ({
+        kind: "group" as const,
+        id: group.id,
+        order: group.editorOrder ?? 0,
+      })),
+  ].sort((first, second) => first.order - second.order);
+}
+
+function assignContainerOrder<T extends OrderedEditorItem>(
+  items: T[],
+  groups: EditorGroup[],
+  parentGroupId: string | undefined,
+  tokens: EditorToken[],
+): { items: T[]; groups: EditorGroup[] } {
+  const order = new Map(tokens.map((token, index) => [tokenKey(token), index]));
+  return {
+    items: items.map((item) =>
+      item.groupId === parentGroupId
+        ? {
+            ...item,
+            editorOrder:
+              order.get(`item:${String(item.id)}`) ?? item.editorOrder,
+          }
+        : item,
+    ),
+    groups: groups.map((group) =>
+      group.parentGroupId === parentGroupId
+        ? {
+            ...group,
+            editorOrder: order.get(`group:${group.id}`) ?? group.editorOrder,
+          }
+        : group,
+    ),
+  };
+}
+
+export function moveEditorRow<T extends OrderedEditorItem>(
+  sourceItems: T[],
+  sourceGroups: EditorGroup[],
+  sourceId: string | number,
+  parentGroupId: string | undefined,
+  target: { kind: "item" | "group"; id: string } | null,
+  placement: "before" | "after" | "first" | "last",
+) {
+  let { items, groups } = materializeEditorOrder(sourceItems, sourceGroups);
+  const source = items.find((item) => String(item.id) === String(sourceId));
+  if (!source) return { items: sourceItems, groups: sourceGroups };
+  const previousParent = source.groupId;
+  items = items.map((item) =>
+    String(item.id) === String(sourceId)
+      ? { ...item, groupId: parentGroupId }
+      : item,
+  );
+  const sourceKey = `item:${String(sourceId)}`;
+  const targetTokens = containerTokens(items, groups, parentGroupId).filter(
+    (token) => tokenKey(token) !== sourceKey,
+  );
+  let insertIndex = placement === "first" ? 0 : targetTokens.length;
+  if (target) {
+    const targetIndex = targetTokens.findIndex(
+      (token) => tokenKey(token) === `${target.kind}:${target.id}`,
+    );
+    if (targetIndex < 0) return { items: sourceItems, groups: sourceGroups };
+    insertIndex = targetIndex + (placement === "after" ? 1 : 0);
+  }
+  targetTokens.splice(insertIndex, 0, {
+    kind: "item",
+    id: String(sourceId),
+    order: insertIndex,
+  });
+  ({ items, groups } = assignContainerOrder(
+    items,
+    groups,
+    parentGroupId,
+    targetTokens,
+  ));
+  if (previousParent !== parentGroupId) {
+    ({ items, groups } = assignContainerOrder(
+      items,
+      groups,
+      previousParent,
+      containerTokens(items, groups, previousParent),
+    ));
+  }
+  return { items, groups };
+}
+
+/**
+ * Moves a row by one logical position inside the recursive editor tree.
+ *
+ * Keyboard reordering used to walk the flattened, visible list. That made a
+ * single Alt+Arrow step depend on which groups happened to be expanded and,
+ * with duplicate legacy editorOrder values, could select an unrelated row.
+ * This helper always normalizes the tree first and then moves between direct
+ * siblings. Crossing a container edge explicitly exits the current group.
+ */
+export function moveEditorRowOneStep<T extends OrderedEditorItem>(
+  sourceItems: T[],
+  sourceGroups: EditorGroup[],
+  sourceId: string | number,
+  direction: -1 | 1,
+) {
+  const normalized = materializeEditorOrder(sourceItems, sourceGroups);
+  const source = normalized.items.find(
+    (item) => String(item.id) === String(sourceId),
+  );
+  if (!source) return normalized;
+
+  const siblings = containerTokens(
+    normalized.items,
+    normalized.groups,
+    source.groupId,
+  );
+  const sourceIndex = siblings.findIndex(
+    (token) => token.kind === "item" && token.id === String(sourceId),
+  );
+  if (sourceIndex < 0) return normalized;
+  const target = siblings[sourceIndex + direction];
+
+  if (!target) {
+    const parent = source.groupId
+      ? normalized.groups.find((group) => group.id === source.groupId)
+      : undefined;
+    if (!parent) return normalized;
+    return moveEditorRow(
+      normalized.items,
+      normalized.groups,
+      sourceId,
+      parent.parentGroupId,
+      { kind: "group", id: parent.id },
+      direction < 0 ? "before" : "after",
+    );
+  }
+
+  if (target.kind === "group") {
+    const targetGroup = normalized.groups.find(
+      (group) => group.id === target.id,
+    );
+    if (targetGroup && !targetGroup.collapsed) {
+      return moveEditorRow(
+        normalized.items,
+        normalized.groups,
+        sourceId,
+        targetGroup.id,
+        null,
+        direction < 0 ? "last" : "first",
+      );
+    }
+  }
+
+  return moveEditorRow(
+    normalized.items,
+    normalized.groups,
+    sourceId,
+    source.groupId,
+    target,
+    direction < 0 ? "before" : "after",
+  );
+}
+
+export function moveEditorGroupByOrder<T extends OrderedEditorItem>(
+  sourceItems: T[],
+  sourceGroups: EditorGroup[],
+  sourceId: string,
+  parentGroupId: string | undefined,
+  target: { kind: "item" | "group"; id: string } | null,
+  placement: "before" | "after" | "first" | "last",
+) {
+  let { items, groups } = materializeEditorOrder(sourceItems, sourceGroups);
+  const source = groups.find((group) => group.id === sourceId);
+  if (!source) return { items: sourceItems, groups: sourceGroups };
+  const previousParent = source.parentGroupId;
+  groups = groups.map((group) =>
+    group.id === sourceId ? { ...group, parentGroupId } : group,
+  );
+  const sourceKey = `group:${sourceId}`;
+  const targetTokens = containerTokens(items, groups, parentGroupId).filter(
+    (token) => tokenKey(token) !== sourceKey,
+  );
+  let insertIndex = placement === "first" ? 0 : targetTokens.length;
+  if (target) {
+    const targetIndex = targetTokens.findIndex(
+      (token) => tokenKey(token) === `${target.kind}:${target.id}`,
+    );
+    if (targetIndex < 0) return { items: sourceItems, groups: sourceGroups };
+    insertIndex = targetIndex + (placement === "after" ? 1 : 0);
+  }
+  targetTokens.splice(insertIndex, 0, {
+    kind: "group",
+    id: sourceId,
+    order: insertIndex,
+  });
+  ({ items, groups } = assignContainerOrder(
+    items,
+    groups,
+    parentGroupId,
+    targetTokens,
+  ));
+  if (previousParent !== parentGroupId) {
+    ({ items, groups } = assignContainerOrder(
+      items,
+      groups,
+      previousParent,
+      containerTokens(items, groups, previousParent),
+    ));
+  }
+  return { items, groups };
 }
 
 export function EditorGroupAddGlyph() {
@@ -221,6 +532,7 @@ export function EditorGroupHeader({
   dragHandleProps,
   onMove,
   onNavigate,
+  depth = 0,
 }: {
   group: EditorGroup;
   count: number;
@@ -236,6 +548,7 @@ export function EditorGroupHeader({
     current: HTMLInputElement,
     direction: -1 | 1,
   ) => boolean;
+  depth?: number;
 }) {
   return (
     <div
@@ -246,6 +559,9 @@ export function EditorGroupHeader({
       data-editor-group-section={group.section}
       data-editor-group-collapsed={group.collapsed ? "true" : "false"}
       data-editor-group-count={count}
+      data-editor-group-parent-id={group.parentGroupId ?? ""}
+      data-editor-group-depth={depth}
+      style={{ "--group-depth": depth } as CSSProperties}
     >
       <button
         type="button"
@@ -321,10 +637,12 @@ export function EditorGroupBoundaryDropZone({
   group,
   visible,
   t,
+  depth = 0,
 }: {
   group: EditorGroup;
   visible: boolean;
   t: Translate;
+  depth?: number;
 }) {
   if (!visible) return null;
   return (
@@ -333,6 +651,8 @@ export function EditorGroupBoundaryDropZone({
       data-editor-group-boundary="after"
       data-editor-group-id={group.id}
       data-editor-group-section={group.section}
+      data-editor-group-depth={depth}
+      style={{ "--group-depth": depth } as CSSProperties}
       title={t(
         "Переместить через нижнюю границу группы",
         "Move across the lower group boundary",
@@ -409,26 +729,5 @@ function EditorGroupName({
       }}
       aria-label={t("Название группы", "Group name")}
     />
-  );
-}
-
-export function EditorGroupDropZone({
-  section,
-  visible,
-  t,
-}: {
-  section: EditorGroup["section"];
-  visible: boolean;
-  t: Translate;
-}) {
-  if (!visible) return null;
-  return (
-    <div
-      className="editor-group-drop-zone"
-      data-editor-group-id=""
-      data-editor-group-section={section}
-    >
-      {t("Перетащите сюда, чтобы вынести из группы", "Drop here to ungroup")}
-    </div>
   );
 }

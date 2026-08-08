@@ -1,0 +1,33 @@
+{
+  "format": "geosolver",
+  "version": 7,
+  "projectTitle": "Кардиоида",
+  "points": [],
+  "shapes": [
+    {
+      "id": "example-cardioid",
+      "type": "equation",
+      "points": [],
+      "color": "#ef6b62",
+      "name": "cardioid",
+      "equation": "(x^2 + y^2 + 2*a*x)^2 - 4*a^2*(x^2 + y^2) = 0",
+      "editorOrder": 0
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1,
+      "expression": "a = 1",
+      "enabled": true,
+      "color": "#5b6df9",
+      "editorOrder": 0
+    }
+  ],
+  "unknown": [],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1800",
+  "solverTimeLimitMs": "3500",
+  "view": { "x": 130, "y": 0, "scale": 92 }
+}

@@ -13,12 +13,12 @@ import {
   buildGroupedEntries,
   EditorGroupAddGlyph,
   EditorGroupBoundaryDropZone,
-  EditorGroupDropZone,
   EditorGroupHeader,
   focusAdjacentEditorEntry,
   focusEditorSectionEdge,
 } from "./editor-groups";
 import {
+  collectEquationReferences,
   deletedReferenceMessage,
   normalizeUnknownExpression,
   parseConstraint,
@@ -76,7 +76,9 @@ type ConditionsPanelProps = {
   onRenamePoint: (previousId: string, nextId: string) => boolean;
   onUpdatePoint: (
     id: string,
-    patch: Partial<Pick<Point, "x" | "y" | "visible" | "groupId">>,
+    patch: Partial<
+      Pick<Point, "x" | "y" | "visible" | "groupId" | "editorOrder">
+    >,
   ) => void;
   onUpdateShape: (id: string, patch: Partial<Shape>) => void;
   onSelectPoint: (id: string) => void;
@@ -89,6 +91,17 @@ type ConditionsPanelProps = {
   onMoveShape: (id: string, direction: -1 | 1) => void;
   onReorderPoint: (sourceId: string, targetId: string) => void;
   onReorderShape: (sourceId: string, targetId: string) => void;
+  onReorderObject: (
+    sourceKind: "point" | "shape",
+    sourceId: string,
+    targetKind: "point" | "shape",
+    targetId: string,
+  ) => void;
+  onMoveObject: (
+    kind: "point" | "shape",
+    id: string,
+    direction: -1 | 1,
+  ) => void;
 };
 
 export function ConditionsPanel({
@@ -127,12 +140,21 @@ export function ConditionsPanel({
   onMoveShape,
   onReorderPoint,
   onReorderShape,
+  onReorderObject,
+  onMoveObject,
 }: ConditionsPanelProps) {
   const [expanded, setExpanded] = useState({
     objects: true,
     known: true,
     unknown: true,
   });
+  const shadowedEquationVariables = ["x", "y"].filter((name) =>
+    known.some((row) => {
+      if (!row.enabled) return false;
+      const parsed = parseConstraint(row.expression, bareAngleUnit);
+      return parsed?.kind === "definition" && parsed.definition?.name === name;
+    }),
+  );
   const toggleSection = (section: keyof typeof expanded) => {
     setExpanded((current) => ({
       ...current,
@@ -163,6 +185,53 @@ export function ConditionsPanel({
       .flatMap((entry) => (entry.kind === "item" ? [entry.item.id] : []))
       .map((id, index) => [id, index + 1]),
   );
+  const objectOrderItems = [
+    ...points.map((point) => ({
+      id: `point:${point.id}`,
+      groupId: point.groupId,
+      editorOrder: point.editorOrder,
+    })),
+    ...shapes.map((shape) => ({
+      id: `shape:${shape.id}`,
+      groupId: shape.groupId,
+      editorOrder: shape.editorOrder,
+    })),
+  ];
+  const setOrderedObjects = (
+    items: Array<{
+      id: string;
+      groupId?: string;
+      editorOrder?: number;
+    }>,
+  ) => {
+    const order = new Map(items.map((item) => [item.id, item]));
+    points.forEach((point) => {
+      const next = order.get(`point:${point.id}`);
+      if (
+        next &&
+        (next.groupId !== point.groupId ||
+          next.editorOrder !== point.editorOrder)
+      ) {
+        onUpdatePoint(point.id, {
+          groupId: next.groupId,
+          editorOrder: next.editorOrder,
+        });
+      }
+    });
+    shapes.forEach((shape) => {
+      const next = order.get(`shape:${shape.id}`);
+      if (
+        next &&
+        (next.groupId !== shape.groupId ||
+          next.editorOrder !== shape.editorOrder)
+      ) {
+        onUpdateShape(shape.id, {
+          groupId: next.groupId,
+          editorOrder: next.editorOrder,
+        });
+      }
+    });
+  };
   const {
     draggedGroupId,
     groupDragHandleProps,
@@ -171,9 +240,11 @@ export function ConditionsPanel({
     groups,
     known,
     unknown,
+    objects: objectOrderItems,
     setGroups,
     setKnown,
     setUnknown,
+    setObjects: setOrderedObjects,
   });
 
   const addEditorGroup = (section: EditorGroup["section"]) => {
@@ -209,25 +280,31 @@ export function ConditionsPanel({
 
   const deleteEditorGroup = (group: EditorGroup) => {
     setGroups((current) =>
-      current.filter((item) => item.id !== group.id),
+      current
+        .filter((item) => item.id !== group.id)
+        .map((item) =>
+          item.parentGroupId === group.id
+            ? { ...item, parentGroupId: group.parentGroupId }
+            : item,
+        ),
     );
     if (group.section === "objects") {
       points
         .filter((point) => point.groupId === group.id)
         .forEach((point) =>
-          onUpdatePoint(point.id, { groupId: undefined }),
+          onUpdatePoint(point.id, { groupId: group.parentGroupId }),
         );
       shapes
         .filter((shape) => shape.groupId === group.id)
         .forEach((shape) =>
-          onUpdateShape(shape.id, { groupId: undefined }),
+          onUpdateShape(shape.id, { groupId: group.parentGroupId }),
         );
     } else {
       const setRows = group.section === "known" ? setKnown : setUnknown;
       setRows((current) =>
         current.map((row) =>
           row.groupId === group.id
-            ? { ...row, groupId: undefined }
+            ? { ...row, groupId: group.parentGroupId }
             : row,
         ),
       );
@@ -235,20 +312,35 @@ export function ConditionsPanel({
   };
 
   const selectEditorGroup = (group: EditorGroup) => {
+    const descendantGroupIds = new Set<string>([group.id]);
+    let added = true;
+    while (added) {
+      added = false;
+      groups.forEach((candidate) => {
+        if (
+          candidate.parentGroupId &&
+          descendantGroupIds.has(candidate.parentGroupId) &&
+          !descendantGroupIds.has(candidate.id)
+        ) {
+          descendantGroupIds.add(candidate.id);
+          added = true;
+        }
+      });
+    }
     let ids: string[] = [];
     if (group.section === "objects") {
       ids = [
         ...points
-          .filter((point) => point.groupId === group.id)
+          .filter((point) => point.groupId && descendantGroupIds.has(point.groupId))
           .map((point) => point.id),
         ...shapes
-          .filter((shape) => shape.groupId === group.id)
+          .filter((shape) => shape.groupId && descendantGroupIds.has(shape.groupId))
           .flatMap((shape) => shape.points),
       ];
     } else {
       const rows = group.section === "known" ? known : unknown;
       ids = rows
-        .filter((row) => row.groupId === group.id)
+        .filter((row) => row.groupId && descendantGroupIds.has(row.groupId))
         .flatMap((row) => {
           const parsed =
             group.section === "known"
@@ -261,7 +353,7 @@ export function ConditionsPanel({
     onSelectPoints([...new Set(ids)].filter((id) => existing.has(id)));
   };
 
-  const groupHeader = (group: EditorGroup, count: number) => (
+  const groupHeader = (group: EditorGroup, count: number, depth = 0) => (
     <EditorGroupHeader
       key={`header-${group.id}`}
       group={group}
@@ -279,6 +371,7 @@ export function ConditionsPanel({
       onNavigate={(current, direction) =>
         navigateFromGroup(group, current, direction)
       }
+      depth={depth}
     />
   );
 
@@ -463,6 +556,8 @@ export function ConditionsPanel({
                   onMoveShape={onMoveShape}
                   onReorderPoint={onReorderPoint}
                   onReorderShape={onReorderShape}
+                  onReorderObject={onReorderObject}
+                  onMoveObject={onMoveObject}
                   onNavigateNextSection={navigateFromObjects}
                   onAssignPointGroup={(id, groupId) =>
                     onUpdatePoint(id, { groupId })
@@ -471,6 +566,21 @@ export function ConditionsPanel({
                     onUpdateShape(id, { groupId })
                   }
                   renderGroupHeader={groupHeader}
+                  draggedGroupId={
+                    objectGroups.some((group) => group.id === draggedGroupId)
+                      ? draggedGroupId
+                      : null
+                  }
+                  onApplyObjectOrdering={(items, nextGroups) => {
+                    setOrderedObjects(items);
+                    const moved = new Map(
+                      nextGroups.map((group) => [group.id, group]),
+                    );
+                    setGroups((current) =>
+                      current.map((group) => moved.get(group.id) ?? group),
+                    );
+                  }}
+                  shadowedEquationVariables={shadowedEquationVariables}
                 />
               )}
             </section>
@@ -644,10 +754,10 @@ export function ConditionsPanel({
                 </button>
                 <button
                   onClick={() =>
-                    addKnownExpression("inside(ABC, DEFG)")
+                    addKnownExpression("ABC ∈ DEFG")
                   }
                 >
-                  <b>inside(ABC, DEFG)</b>
+                  <b>ABC ∈ DEFG</b>
                   <span>{t("одна фигура внутри другой", "one figure inside another")}</span>
                 </button>
                 <button
@@ -700,22 +810,23 @@ export function ConditionsPanel({
             )}
 
             <div className="expression-list">
-              <EditorGroupDropZone
-                section="known"
-                visible={draggedExpression?.group === "known"}
-                t={t}
-              />
               {knownEntries.map((entry) => {
                 if (entry.kind === "group") {
-                  return groupHeader(entry.group, entry.count);
+                  return groupHeader(entry.group, entry.count, entry.depth);
                 }
                 if (entry.kind === "groupEnd") {
                   return (
                     <EditorGroupBoundaryDropZone
                       key={`end-${entry.group.id}`}
                       group={entry.group}
-                      visible={draggedExpression?.group === "known"}
+                      visible={
+                        draggedExpression?.group === "known" ||
+                        knownGroups.some(
+                          (group) => group.id === draggedGroupId,
+                        )
+                      }
                       t={t}
+                      depth={entry.depth}
                     />
                   );
                 }
@@ -728,7 +839,13 @@ export function ConditionsPanel({
                   bareAngleUnit,
                 );
                 const referenceError = parsed
-                  ? deletedReferenceMessage(parsed.ids, points, locale)
+                  ? deletedReferenceMessage(
+                      parsed.ids,
+                      points,
+                      locale,
+                      collectEquationReferences(parsed),
+                      shapes,
+                    )
                   : null;
                 return (
                   <div
@@ -746,6 +863,8 @@ export function ConditionsPanel({
                     data-expression-group="known"
                     data-expression-group-id={row.groupId ?? ""}
                     data-expression-row={row.id}
+                    data-expression-depth={entry.depth}
+                    style={{ "--group-depth": entry.depth } as React.CSSProperties}
                   >
                     <button
                       className="row-drag-handle"
@@ -1024,22 +1143,23 @@ export function ConditionsPanel({
             )}
 
             <div className="expression-list unknown-list">
-              <EditorGroupDropZone
-                section="unknown"
-                visible={draggedExpression?.group === "unknown"}
-                t={t}
-              />
               {unknownEntries.map((entry) => {
                 if (entry.kind === "group") {
-                  return groupHeader(entry.group, entry.count);
+                  return groupHeader(entry.group, entry.count, entry.depth);
                 }
                 if (entry.kind === "groupEnd") {
                   return (
                     <EditorGroupBoundaryDropZone
                       key={`end-${entry.group.id}`}
                       group={entry.group}
-                      visible={draggedExpression?.group === "unknown"}
+                      visible={
+                        draggedExpression?.group === "unknown" ||
+                        unknownGroups.some(
+                          (group) => group.id === draggedGroupId,
+                        )
+                      }
                       t={t}
+                      depth={entry.depth}
                     />
                   );
                 }
@@ -1049,7 +1169,13 @@ export function ConditionsPanel({
                   unknown.findIndex((item) => item.id === row.id) + 1;
                 const target = parseUnknown(row.expression, bareAngleUnit);
                 const referenceError = target
-                  ? deletedReferenceMessage(target.ids, points, locale)
+                  ? deletedReferenceMessage(
+                      target.ids,
+                      points,
+                      locale,
+                      collectEquationReferences(target),
+                      shapes,
+                    )
                   : null;
                 return (
                   <div
@@ -1067,6 +1193,8 @@ export function ConditionsPanel({
                     data-expression-group="unknown"
                     data-expression-group-id={row.groupId ?? ""}
                     data-expression-row={row.id}
+                    data-expression-depth={entry.depth}
+                    style={{ "--group-depth": entry.depth } as React.CSSProperties}
                   >
                     <button
                       className="row-drag-handle"
@@ -1199,7 +1327,7 @@ export function ConditionsPanel({
                 <p>
                   <b>Shift+Enter</b> сохраняет строку и создаёт следующую.{" "}
                   Символы сворачиваются автоматически: <b>\angle</b> → ∠,{" "}
-                  <b>\perp</b> → ⟂, <b>\in</b> → ∈. Формулы:{" "}
+                  <b>\perp</b> → ⟂, <b>\in</b> → ∈, <b>\cup</b> → ∪. Формулы:{" "}
                   <b>AB + BC = AC</b>, <b>∠ABC = ∠BCA + 10°</b> или цепочка{" "}
                   <b>AB = BC = CD</b>. Площадь: <b>S(ABCD) = ?</b>,
                   периметр: <b>P(ABCD) = ?</b>. Для круглых фигур:
@@ -1213,12 +1341,15 @@ export function ConditionsPanel({
                   <b>H = EG ∩ DF</b> означает ровно одну точку, <b>H ∈ EG ∩ DF</b>
                   допускает другие точки, а <b>{"{H, I} = circle(OA) ∩ circle(BC)"}</b>
                   задаёт всё множество.
+                  Фигуру можно вложить записью <b>ABC ∈ DEFG</b>, а
+                  цепочки и объединения множеств записываются как{" "}
+                  <b>H ∈ AB ∩ CD ∩ EF</b> и <b>H ∈ f1 ∪ ABC</b>.
                 </p>
               ) : (
                 <p>
                   <b>Shift+Enter</b> saves a row and creates the next one.
                   Commands expand automatically: <b>\angle</b> → ∠,{" "}
-                  <b>\perp</b> → ⟂, <b>\in</b> → ∈. Formulas:{" "}
+                  <b>\perp</b> → ⟂, <b>\in</b> → ∈, <b>\cup</b> → ∪. Formulas:{" "}
                   <b>AB + BC = AC</b>, <b>∠ABC = ∠BCA + 10°</b>, or{" "}
                   <b>AB = BC = CD</b>. Area: <b>S(ABCD) = ?</b>,
                   perimeter: <b>P(ABCD) = ?</b>. Circular shapes:
@@ -1231,6 +1362,8 @@ export function ConditionsPanel({
                   <b>H = EG ∩ DF</b> means exactly one point, <b>H ∈ EG ∩ DF</b>
                   allows additional points, and <b>{"{H, I} = circle(OA) ∩ circle(BC)"}</b>
                   specifies the complete set.
+                  Use <b>ABC ∈ DEFG</b> for figure containment and combine
+                  sets as <b>H ∈ AB ∩ CD ∩ EF</b> or <b>H ∈ f1 ∪ ABC</b>.
                 </p>
               )}
             </div>

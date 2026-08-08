@@ -6,9 +6,87 @@ export type ProjectExample = {
   title: { ru: string; en: string };
   description: { ru: string; en: string };
   file: string;
+  category?: ProjectExampleCategoryId;
 };
 
+export type ProjectExampleCategoryId =
+  | "basics"
+  | "triangles"
+  | "circles"
+  | "polygons"
+  | "equations"
+  | "challenges";
+
+export const PROJECT_EXAMPLE_CATEGORIES: {
+  id: ProjectExampleCategoryId;
+  title: { ru: string; en: string };
+}[] = [
+  { id: "basics", title: { ru: "Основы", en: "Basics" } },
+  { id: "triangles", title: { ru: "Треугольники", en: "Triangles" } },
+  { id: "circles", title: { ru: "Окружности", en: "Circles" } },
+  { id: "polygons", title: { ru: "Многоугольники", en: "Polygons" } },
+  { id: "equations", title: { ru: "Уравнения", en: "Equations" } },
+  { id: "challenges", title: { ru: "Сложные", en: "Challenges" } },
+];
+
+const EXAMPLE_CATEGORY_IDS: Partial<
+  Record<ProjectExampleCategoryId, Set<string>>
+> = {
+  triangles: new Set([
+    "triangle-altitudes-24", "equilateral-circle-26",
+    "one-fact", "isosceles-everywhere", "t1-angle-sum",
+    "isosceles-altitude", "median-area-t2", "inconsistent-altitude-t3",
+    "right-triangle-altitude-t4", "similar-triangles-t8",
+    "scalene-triangle-t9", "task-t", "t17", "t13", "t11",
+    "all-born-equal", "beautiful-haircut",
+  ]),
+  circles: new Set([
+    "quarter-circle-perpendiculars", "tangent-circles-25",
+    "green-vs-blue", "semicircle-turducken", "two-circles-tale",
+    "intersecting-sectors-t5", "orthogonal-circle-t6", "t18", "t16",
+    "t14", "power-chords",
+  ]),
+  polygons: new Set([
+    "rectangle-diagonal-angle", "overturned-square", "doc-oct",
+    "all-in-square", "isosceles-trapezoid-t10", "runaway-polygon", "t12",
+    "this-is-a-trap", "sunset-square-city",
+  ]),
+  equations: new Set(["cardioid", "apollo"]),
+  challenges: new Set([
+    "washing-machine", "exterior-angle-t7", "t15", "t19",
+  ]),
+};
+
+export function projectExampleCategory(
+  example: ProjectExample,
+): ProjectExampleCategoryId {
+  if (example.category) return example.category;
+  return (
+    PROJECT_EXAMPLE_CATEGORIES.find((category) =>
+      EXAMPLE_CATEGORY_IDS[category.id]?.has(example.id),
+    )?.id ?? "basics"
+  );
+}
+
 export const PROJECT_EXAMPLES: ProjectExample[] = [
+  {
+    id: "cardioid",
+    title: { ru: "Кардиоида", en: "Cardioid" },
+    description: {
+      ru: "Неявная кривая с параметром a = 1 демонстрирует уравнения, локальные координаты x, y и точную отрисовку особенности в начале координат.",
+      en: "An implicit curve with a = 1 demonstrates equations, local x/y coordinates, and cusp rendering at the origin.",
+    },
+    file: "examples/cardioid.json",
+  },
+  {
+    id: "apollo",
+    title: { ru: "Аполлон", en: "Apollo" },
+    description: {
+      ru: "Область f1 задана неравенством расстояний и совпадает с эллипсом CAD. Решатель проверяет, что разность их площадей равна нулю.",
+      en: "Region f1 is defined by a distance inequality and coincides with ellipse CAD. The solver verifies that their area difference is zero.",
+    },
+    file: "examples/apollo.json",
+  },
   {
     id: "right-triangle",
     title: {
@@ -329,6 +407,102 @@ export const PROJECT_EXAMPLES: ProjectExample[] = [
       en: "Equal legs, parallel bases, and a diagonal perpendicular to a side give the angles 60° and 120°.",
     },
     file: "examples/isosceles-trapezoid-t10.json",
+  },
+  {
+    id: "task-t",
+    title: { ru: "Две связанные биссектрисы", en: "Two linked bisectors" },
+    description: { ru: "Угловые равенства и три заданные длины определяют CD.", en: "Angle equalities and three fixed lengths determine CD." },
+    file: "examples/task-t.json",
+  },
+  {
+    id: "t18",
+    title: { ru: "Окружность и равносторонний треугольник", en: "Circle and equilateral triangle" },
+    description: { ru: "Симметричная хорда и равносторонний треугольник; найдите разность длин.", en: "A symmetric chord and an equilateral triangle; find the length difference." },
+    file: "examples/t18.json",
+  },
+  {
+    id: "t17",
+    title: { ru: "Произведение сторон", en: "Product of sides" },
+    description: { ru: "Циклическая конфигурация сводится к степенному соотношению.", en: "A cyclic configuration reduces to a power relation." },
+    file: "examples/t17.json",
+  },
+  {
+    id: "t16",
+    title: { ru: "Четыре точки на окружности", en: "Four concyclic points" },
+    description: { ru: "Сумма двух вписанных углов в непересекающейся конфигурации.", en: "A sum of two inscribed angles in a non-crossing configuration." },
+    file: "examples/t16.json",
+  },
+  {
+    id: "t15",
+    title: { ru: "Параллельное сечение треугольника", en: "Parallel triangle section" },
+    description: { ru: "Пересечения секущих и параллельная сторона дают две тождественные разности.", en: "Transversal intersections and a parallel side give two invariant differences." },
+    file: "examples/t15.json",
+  },
+  {
+    id: "t14",
+    title: { ru: "Три равные хорды", en: "Three equal chords" },
+    description: { ru: "Площадь равностороннего вписанного треугольника сравнивается с площадью круга.", en: "Compare an inscribed equilateral triangle with its circle." },
+    file: "examples/t14.json",
+  },
+  {
+    id: "t13",
+    title: { ru: "Треугольник 30°–45°", en: "30°–45° triangle" },
+    description: { ru: "Точная площадь по стороне и двум углам.", en: "Exact area from one side and two angles." },
+    file: "examples/t13.json",
+  },
+  {
+    id: "runaway-polygon",
+    title: { ru: "Уехалиугольник", en: "Runaway polygon" },
+    description: { ru: "Большая система выпуклости, равенств и отношений площадей.", en: "A large system of convexity, equalities, and area ratios." },
+    file: "examples/runaway-polygon.json",
+  },
+  {
+    id: "t12",
+    title: { ru: "Прямоугольник по площади и отношению", en: "Rectangle from area and ratio" },
+    description: { ru: "Стороны прямоугольника находятся точно из отношения 4:9 и площади 144.", en: "Find rectangle sides exactly from ratio 4:9 and area 144." },
+    file: "examples/t12.json",
+  },
+  {
+    id: "t11",
+    title: { ru: "Треугольник 40°–60°–80°", en: "40°–60°–80° triangle" },
+    description: { ru: "Теорема синусов для двух неизвестных сторон.", en: "Use the sine rule for two unknown sides." },
+    file: "examples/t11.json",
+  },
+  {
+    id: "this-is-a-trap",
+    title: { ru: "Это ловушка", en: "This is a trap" },
+    description: { ru: "Площади частей трапеции и прямой угол определяют основание.", en: "Areas within a trapezoid and a right angle determine a base." },
+    file: "examples/this-is-a-trap.json",
+  },
+  {
+    id: "power-chords",
+    title: { ru: "Степенные хорды", en: "Power chords" },
+    description: { ru: "Многоступенчатая конфигурация окружностей, хорд и касательных.", en: "A multi-stage configuration of circles, chords, and tangencies." },
+    file: "examples/power-chords.json",
+  },
+  {
+    id: "all-born-equal",
+    title: { ru: "Все рождены равными", en: "All born equal" },
+    description: { ru: "Равные отрезки и площади в связанной системе треугольников.", en: "Equal segments and areas in a linked triangle system." },
+    file: "examples/all-born-equal.json",
+  },
+  {
+    id: "beautiful-haircut",
+    title: { ru: "Красивая стрижка", en: "Beautiful haircut" },
+    description: { ru: "Сложное разбиение треугольника с целевой площадью.", en: "A complex triangle subdivision with a target area." },
+    file: "examples/beautiful-haircut.json",
+  },
+  {
+    id: "sunset-square-city",
+    title: { ru: "Закат над Квадратным городом", en: "Sunset over Square City" },
+    description: { ru: "Цепочка квадратов и пересечений с точной площадью.", en: "A chain of squares and intersections with an exact area." },
+    file: "examples/sunset-square-city.json",
+  },
+  {
+    id: "t19",
+    title: { ru: "Точка на эллипсе", en: "Point on an ellipse" },
+    description: { ru: "Определяющее свойство эллипса даёт равенство сумм расстояний.", en: "The defining property of an ellipse gives an equality of distance sums." },
+    file: "examples/t19.json",
   },
 ];
 

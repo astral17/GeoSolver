@@ -1,4 +1,4 @@
-export const CURRENT_PROJECT_FORMAT_VERSION = 4;
+export const CURRENT_PROJECT_FORMAT_VERSION = 7;
 
 type ProjectData = Record<string, unknown>;
 type ProjectMigration = (source: ProjectData) => ProjectData;
@@ -33,6 +33,22 @@ function migrateExpressionRows(
           : row,
       )
     : value;
+}
+
+export function migrateLegacyInsideExpression(expression: string) {
+  const match = expression.match(
+    /^\s*(?:inside|внутри)\s*\(\s*(.+?)\s*,\s*(.+?)\s*\)\s*$/i,
+  );
+  if (!match) return expression;
+  const inner = match[1].trim();
+  const outer = match[2].trim();
+  const point = inner.match(/^[A-Z]\d*$/i);
+  const polygonOuter =
+    /^(?:[A-Z]\d*){3,}$/i.test(outer.replace(/\s+/g, "")) ||
+    /^polygon\s*\(/i.test(outer);
+  return point && !polygonOuter
+    ? `point(${inner.toUpperCase()}) ∈ ${outer}`
+    : `${inner} ∈ ${outer}`;
 }
 
 export function migrateLegacySectorDirections(source: ProjectData) {
@@ -137,6 +153,51 @@ const PROJECT_MIGRATIONS: Record<number, ProjectMigration> = {
   // those two points selects the complementary sector. Preserve the visible
   // arc of old minor/major sectors by swapping their endpoints when needed.
   3: migrateLegacySectorDirections,
+  // Format 5 permits recursive editor groups through an optional
+  // `parentGroupId`. Existing groups remain at the section root.
+  4: (source) => ({ ...source, version: 5 }),
+  // Format 6 stores one common ordering for points, figures and lines.
+  5: (source) => {
+    let editorOrder = 0;
+    const addOrder = (value: unknown) =>
+      Array.isArray(value)
+        ? value.map((item) =>
+            isRecord(item)
+              ? { ...item, editorOrder: editorOrder++ }
+              : item,
+          )
+        : value;
+    return {
+      ...source,
+      version: 6,
+      points: addOrder(source.points),
+      shapes: addOrder(source.shapes),
+    };
+  },
+  // Format 7 has one implicit-equation object. Equality draws a curve;
+  // inequalities draw a region. It also replaces the legacy inside(A, B)
+  // spelling with the common set-membership notation A ∈ B.
+  6: (source) => ({
+    ...source,
+    version: 7,
+    shapes: Array.isArray(source.shapes)
+      ? source.shapes.map((shape) =>
+          isRecord(shape) &&
+          (shape.type === "equationLine" ||
+            shape.type === "equationRegion")
+            ? { ...shape, type: "equation" }
+            : shape,
+        )
+      : source.shapes,
+    known: migrateExpressionRows(
+      source.known,
+      migrateLegacyInsideExpression,
+    ),
+    unknown: migrateExpressionRows(
+      source.unknown,
+      migrateLegacyInsideExpression,
+    ),
+  }),
 };
 
 export function migrateProjectData(source: ProjectData) {

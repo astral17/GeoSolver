@@ -677,6 +677,24 @@
   background: #fffaf0;
 }
 
+.result-card.inconsistent-result {
+  border-color: #ef6b62;
+  background: #fff7f6;
+}
+
+.contradiction {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.contradiction code {
+  display: block;
+  padding: 7px 9px;
+  border-radius: 7px;
+  background: rgba(239, 107, 98, 0.1);
+}
+
 .result-state {
   min-height: 37px;
   display: flex;
@@ -1036,6 +1054,7 @@
 }
 
 .solve-button {
+  position: relative;
   width: 100%;
   height: 41px;
   display: flex;
@@ -1077,6 +1096,18 @@
   color: #e7e9ff;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 8px;
+}
+
+.solver-live-progress {
+  position: absolute;
+  right: 12px;
+  min-width: 96px;
+  text-align: right;
+  color: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.86;
 }
 
 .spinner {
@@ -1457,6 +1488,47 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 17px;
+}
+
+.help-project-browser {
+  display: grid;
+  gap: 16px;
+}
+
+.help-project-tabs {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 2px 1px 6px;
+}
+
+.help-project-tabs button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.help-project-tabs button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.help-project-tabs button span {
+  min-width: 19px;
+  padding: 2px 5px;
+  border-radius: 10px;
+  background: var(--surface-muted);
+  font-size: 10px;
+  text-align: center;
 }
 
 .help-project-card {

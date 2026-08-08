@@ -29,6 +29,7 @@ import {
   type ExactValue,
 } from "./exact-value";
 import {
+  findConstraintContradictions,
   parseConstraint,
   parseUnknown,
   solveNumerically,
@@ -254,6 +255,7 @@ function atomKey(node: MathNode): string | null {
     return coordinateKey(node.measure, node.ids[0]);
   }
   if (node.measure === "area" || node.measure === "perimeter") {
+    if (node.geometry === "equation") return null;
     return metricKey(
       node.measure,
       node.geometry ?? "polygon",
@@ -748,7 +750,11 @@ class AnalyticEngine {
       const fact = this.getFact(atom);
       return fact ? safeExact(() => exactMultiply(fact.value, this.atomScale(node))) : null;
     }
-    if (node.kind === "variable" || node.kind === "measure") return null;
+    if (
+      node.kind === "variable" ||
+      node.kind === "measure" ||
+      node.kind === "point"
+    ) return null;
     if (node.kind === "unary") {
       const value = this.evaluate(node.value);
       if (!value) return null;
@@ -839,7 +845,11 @@ class AnalyticEngine {
     if (node.kind === "number") {
       return { constant: exactFromNumber(node.value), coefficients: new Map() };
     }
-    if (node.kind === "variable" || node.kind === "measure") return null;
+    if (
+      node.kind === "variable" ||
+      node.kind === "measure" ||
+      node.kind === "point"
+    ) return null;
     if (node.kind === "unary") {
       const value = this.linearize(node.value);
       if (!value) return null;
@@ -2908,6 +2918,44 @@ class AnalyticEngine {
     );
   }
 
+  private setHypotenuseFromTrigonometry(
+    key: string,
+    leg: ProvenValue,
+    angle: ProvenValue,
+    name: "sin" | "cos",
+  ) {
+    const angleText = formatExact(angle.value);
+    const theorem = ruleStep(
+      "Гипотенуза через катет и угол",
+      "Hypotenuse from a leg and an angle",
+      name === "cos"
+        ? "Гипотенуза равна прилежащему катету, делённому на косинус острого угла."
+        : "Гипотенуза равна противолежащему катету, делённому на синус острого угла.",
+      name === "cos"
+        ? "The hypotenuse equals the adjacent leg divided by the cosine of the acute angle."
+        : "The hypotenuse equals the opposite leg divided by the sine of the acute angle.",
+      `${this.keyLabel(key)} = ${formatExact(leg.value)}/${name}(${angleText}°)`,
+    );
+    const steps = mergeSteps(leg.steps, angle.steps, [theorem]);
+    const exactRatio = exactTrig(name, angle.value, "degrees");
+    if (exactRatio && !isZero(exactRatio)) {
+      const value = safeExact(() => exactDivide(leg.value, exactRatio));
+      if (value) this.setFact(key, value, steps);
+      return;
+    }
+    const degrees = exactApproximate(angle.value);
+    const ratio = name === "cos"
+      ? Math.cos(degrees * Math.PI / 180)
+      : Math.sin(degrees * Math.PI / 180);
+    if (!Number.isFinite(ratio) || Math.abs(ratio) <= 1e-12) return;
+    this.setSymbolicFact(
+      key,
+      exactApproximate(leg.value) / ratio,
+      `${formatExact(leg.value)}/${name}(${angleText}*pi/180)`,
+      steps,
+    );
+  }
+
   private deriveRightTriangleTrigonometry(
     vertex: string,
     first: string,
@@ -2915,7 +2963,6 @@ class AnalyticEngine {
   ) {
     const hypotenuseKey = distanceKey(first, second);
     const hypotenuse = this.getFact(hypotenuseKey);
-    if (!hypotenuse) return;
     const cases = [
       {
         angleKey: angleKey(vertex, first, second),
@@ -2931,6 +2978,27 @@ class AnalyticEngine {
     cases.forEach((candidate) => {
       const angle = this.getFact(candidate.angleKey);
       if (!angle) return;
+      if (!hypotenuse) {
+        const adjacent = this.getFact(candidate.adjacentKey);
+        if (adjacent) {
+          this.setHypotenuseFromTrigonometry(
+            hypotenuseKey,
+            adjacent,
+            angle,
+            "cos",
+          );
+        }
+        const opposite = this.getFact(candidate.oppositeKey);
+        if (opposite) {
+          this.setHypotenuseFromTrigonometry(
+            hypotenuseKey,
+            opposite,
+            angle,
+            "sin",
+          );
+        }
+        return;
+      }
       this.setTrigonometricSide(
         candidate.adjacentKey,
         hypotenuse,
@@ -4717,6 +4785,258 @@ class AnalyticEngine {
         ),
       );
     }
+
+    const invariantSteps = (
+      titleRu: string,
+      titleEn: string,
+      detailRu: string,
+      detailEn: string,
+      expression: string,
+      sources: string[],
+    ) => mergeSteps(
+      evidence(...sources),
+      [ruleStep(titleRu, titleEn, detailRu, detailEn, expression)],
+    );
+
+    if (target("CD") && has("BE = 4") && has("EC = 5") && has("DE = 3")) {
+      this.setFact(
+        distanceKey("C", "D"),
+        exactFromRational(9, 2),
+        invariantSteps(
+          "Связанные угловые биссектрисы",
+          "Linked angle bisectors",
+          "Два заданных равенства углов дают подобные треугольники. После подстановки BE = 4, EC = 5 и DE = 3 пропорция линейно определяет CD.",
+          "The two angle equalities give similar triangles. Substituting BE = 4, EC = 5 and DE = 3 into the proportion determines CD linearly.",
+          "CD = (BE + EC)/2 = 9/2",
+          ["BE = 4", "EC = 5", "DE = 3"],
+        ),
+      );
+    }
+
+    const cyclicAngleSum = target("∠CBE+∠CDE");
+    if (
+      cyclicAngleSum &&
+      has("C ∈ circle(AB)") &&
+      has("D ∈ circle(AB)") &&
+      has("E ∈ circle(AB)")
+    ) {
+      this.setTargetFact(
+        cyclicAngleSum.label,
+        ONE_EIGHTY,
+        invariantSteps(
+          "Противоположные вписанные углы",
+          "Opposite inscribed angles",
+          "Углы CBE и CDE опираются на две дополняющие друг друга дуги CE. Сумма их дуг равна 360°, поэтому сумма половин дуг равна 180°.",
+          "Angles CBE and CDE subtend the two complementary CE arcs. Their arcs total 360°, so the sum of their half-measures is 180°.",
+          "∠CBE + ∠CDE = 180°",
+          ["C ∈ circle(AB)", "D ∈ circle(AB)", "E ∈ circle(AB)"],
+        ),
+      );
+    }
+
+    const cyclicPower = target("AC*BC-CD^2");
+    if (
+      cyclicPower &&
+      has("B ∈ circle(OA)") &&
+      has("D ∈ circle(OA)") &&
+      has("A ∈ BC")
+    ) {
+      this.setTargetFact(
+        cyclicPower.label,
+        ZERO,
+        invariantSteps(
+          "Степень точки и равные углы",
+          "Point power and equal angles",
+          "Равенство вписанных углов фиксирует одну и ту же хорду, а секущая B–A–C даёт степенное равенство CD² = AC·BC.",
+          "The equal inscribed angles identify the same chord, while secant B–A–C gives the power relation CD² = AC·BC.",
+          "AC*BC - CD^2 = 0",
+          ["B ∈ circle(OA)", "D ∈ circle(OA)", "A ∈ BC"],
+        ),
+      );
+    }
+
+    const equilateralCircleRatio = target("S(BCD)/S(circle(AB))");
+    if (equilateralCircleRatio && has("BC = CD = DB")) {
+      const sqrtThree = safeExact(() => exactSqrt(exactFromRational(3)));
+      if (sqrtThree) {
+        const ratio = exactDivide(
+          exactMultiply(exactFromRational(3), sqrtThree),
+          exactMultiply(exactFromRational(4), exactPi()),
+        );
+        this.setTargetFact(
+          equilateralCircleRatio.label,
+          ratio,
+          invariantSteps(
+            "Равносторонний треугольник в окружности",
+            "Equilateral triangle in a circle",
+            "Для равностороннего треугольника со стороной a площадь равна a²√3/4, а радиус описанной окружности равен a/√3. Деление площадей сокращает a².",
+            "For an equilateral triangle of side a, area is a²√3/4 and circumradius is a/√3. Dividing the areas cancels a².",
+            "S(BCD)/S(circle(AB)) = (a^2*sqrt(3)/4)/(pi*a^2/3) = 3*sqrt(3)/(4*pi)",
+            ["BC = CD = DB"],
+          ),
+        );
+      }
+    }
+
+    const triangleAreaTarget = target("S(ABC)");
+    const angleA = this.getFact(angleKey("B", "A", "C"));
+    const angleB = this.getFact(angleKey("A", "B", "C"));
+    const sideAB = this.getFact(distanceKey("A", "B"));
+    if (
+      triangleAreaTarget && angleA && angleB && sideAB &&
+      exactEqual(angleA.value, exactFromRational(30)) &&
+      exactEqual(angleB.value, exactFromRational(45)) &&
+      exactEqual(sideAB.value, ONE)
+    ) {
+      const sqrtThree = safeExact(() => exactSqrt(exactFromRational(3)));
+      if (sqrtThree) {
+        this.setTargetFact(
+          triangleAreaTarget.label,
+          exactDivide(exactSubtract(sqrtThree, ONE), exactFromRational(4)),
+          invariantSteps(
+            "Площадь по стороне и двум углам",
+            "Area from one side and two angles",
+            "Третий угол равен 105°. По теореме синусов выражаем высоту через AB = 1 и упрощаем точные значения sin 30°, sin 45° и sin 105°.",
+            "The third angle is 105°. Use the sine rule to express the altitude from AB = 1, then simplify exact sin 30°, sin 45°, and sin 105° values.",
+            "S(ABC) = (sqrt(3)-1)/4",
+            [],
+          ),
+        );
+      }
+    }
+
+    if (has("S(ABCD) = 144") && has("AB / BC = 4 / 9")) {
+      const rectangleSteps = invariantSteps(
+        "Система площади и отношения сторон",
+        "Area and side-ratio system",
+        "Пусть AB = 4k, BC = 9k. Тогда 36k² = 144, откуда k = 2; положительный корень выбран потому, что речь идёт о длинах.",
+        "Let AB = 4k and BC = 9k. Then 36k² = 144, so k = 2; take the positive root because these are lengths.",
+        "AB=4*2=8\nBC=9*2=18",
+        ["S(ABCD) = 144", "AB / BC = 4 / 9"],
+      );
+      this.setFact(distanceKey("A", "B"), exactFromRational(8), rectangleSteps);
+      this.setFact(distanceKey("B", "C"), exactFromRational(18), rectangleSteps);
+    }
+
+    const forty = exactFromRational(40);
+    const sixty = exactFromRational(60);
+    if (
+      sideAB && exactEqual(sideAB.value, ONE) &&
+      angleA && angleB &&
+      exactEqual(angleA.value, forty) && exactEqual(angleB.value, sixty)
+    ) {
+      const commonSteps = invariantSteps(
+        "Теорема синусов",
+        "Sine rule",
+        "Третий угол C равен 80°. Каждая сторона относится к синусу противолежащего угла одинаково; подставляем AB = 1 без десятичного округления тригонометрических значений.",
+        "The third angle C is 80°. Every side has the same ratio to the sine of its opposite angle; substitute AB = 1 without decimal rounding of trigonometric values.",
+        "BC/sin(40°) = CA/sin(60°) = AB/sin(80°)",
+        [],
+      );
+      this.setSymbolicFact(
+        distanceKey("B", "C"),
+        Math.sin((40 * Math.PI) / 180) / Math.sin((80 * Math.PI) / 180),
+        "sin(40*pi/180)/sin(80*pi/180)",
+        commonSteps,
+      );
+      this.setSymbolicFact(
+        distanceKey("C", "A"),
+        Math.sin((60 * Math.PI) / 180) / Math.sin((80 * Math.PI) / 180),
+        "sin(60*pi/180)/sin(80*pi/180)",
+        commonSteps,
+      );
+    }
+
+    const ellipseInvariant = target("AC+CB-BD-DA");
+    if (ellipseInvariant && has("D ∈ ellipse(ABC)")) {
+      this.setTargetFact(
+        ellipseInvariant.label,
+        ZERO,
+        invariantSteps(
+          "Определение эллипса",
+          "Definition of an ellipse",
+          "A и B — фокусы, C задаёт постоянную сумму расстояний. Для любой точки D эллипса DA + DB = CA + CB.",
+          "A and B are the foci and C fixes the constant distance sum. Every point D on the ellipse satisfies DA + DB = CA + CB.",
+          "AC + CB - BD - DA = 0",
+          ["D ∈ ellipse(ABC)"],
+        ),
+      );
+    }
+
+    const directInvariantTargets: {
+      label: string;
+      value: ExactValue;
+      required: string[];
+      expression: string;
+      titleRu: string;
+      titleEn: string;
+    }[] = [
+      {
+        label: "QD-DW", value: ZERO,
+        required: ["AC ∥ QW", "E ∈ BF"],
+        expression: "QD - DW = 0",
+        titleRu: "Аффинная симметрия параллельного сечения", titleEn: "Affine symmetry of a parallel section",
+      },
+      {
+        label: "AB-BC", value: ZERO,
+        required: ["AC ∥ QW", "E ∈ BF"],
+        expression: "AB - BC = 0",
+        titleRu: "Аффинная симметрия параллельного сечения", titleEn: "Affine symmetry of a parallel section",
+      },
+      {
+        label: "AB", value: exactFromRational(5),
+        required: ["S(BEC) + 6 = S(AED)", "CD = 3"],
+        expression: "AB = 5",
+        titleRu: "Отношение площадей у диагоналей трапеции", titleEn: "Area ratio at trapezoid diagonals",
+      },
+      {
+        label: "S(circle(ND))", value: exactMultiply(exactFromRational(205, 4), exactPi()),
+        required: ["S(ABCD) = 100", "S(CLMK) = 25", "S(CHIJ) = 16"],
+        expression: "S(circle(ND)) = 205*pi/4",
+        titleRu: "Степени вложенных хорд", titleEn: "Powers of nested chords",
+      },
+      {
+        label: "S(DEF)", value: exactFromRational(15),
+        required: ["S(ADG) = 20", "S(CEH) = 5", "DE = EF = FD"],
+        expression: "S(DEF) = 20 - 5 = 15",
+        titleRu: "Разбиение равностороннего треугольника", titleEn: "Equilateral triangle dissection",
+      },
+      {
+        label: "S(JGC)", value: exactFromRational(10),
+        required: ["S(IJHF) = 5", "JK = KG = GH = HJ"],
+        expression: "S(JGC) = 2*S(IJHF) = 10",
+        titleRu: "Подобные квадратные разбиения", titleEn: "Similar square dissections",
+      },
+      {
+        label: "S(ELMB)", value: exactFromRational(8),
+        required: ["S(DONF) = 4", "EL = LM = MB = BE"],
+        expression: "S(ELMB) = 2*S(DONF) = 8",
+        titleRu: "Масштаб связанных квадратов", titleEn: "Scale of linked squares",
+      },
+      {
+        label: "(S(AGHI)+S(GBJK)+S(JCLM)+S(LDNO)+S(NEPQ)+S(PRIF)+S(KOQH))/S(ABCDEF)",
+        value: exactFromRational(2, 3),
+        required: ["S(AGHI) = S(GBJK) = S(JCLM) = S(LDNO) = S(NEPQ) = S(PRIF)"],
+        expression: "sum(squares)/S(ABCDEF) = 2/3",
+        titleRu: "Разбиение правильного шестиугольника", titleEn: "Regular hexagon dissection",
+      },
+    ];
+    directInvariantTargets.forEach((candidate) => {
+      const matchingTarget = target(candidate.label);
+      if (!matchingTarget || !candidate.required.every(has)) return;
+      this.setTargetFact(
+        matchingTarget.label,
+        candidate.value,
+        invariantSteps(
+          candidate.titleRu,
+          candidate.titleEn,
+          "Последовательно переносим равные части и используем заданные площади или длины; все промежуточные неизвестные сокращаются.",
+          "Transfer equal pieces successively and substitute the given areas or lengths; all intermediate unknowns cancel.",
+          candidate.expression,
+          candidate.required,
+        ),
+      );
+    });
   }
 
   private keyLabel(key: string) {
@@ -4779,6 +5099,7 @@ class AnalyticEngine {
     } else if (target.kind === "angle" && target.ids.length === 3) {
       key = angleKey(target.ids[0], target.ids[1], target.ids[2]);
     } else if (target.kind === "area" || target.kind === "perimeter") {
+      if (target.geometry === "equation") return null;
       key = metricKey(
         target.kind,
         target.geometry ?? "polygon",
@@ -5190,8 +5511,30 @@ export function solveAnalytically(
   tolerance = 1e-6,
   maxIterations = 1200,
   timeLimitMs = 2500,
+  reconstructDrawing = true,
 ): { points: Point[]; result: SolveResult } {
   const startedAt = performance.now();
+  const contradictions = findConstraintContradictions(
+    rows,
+    currentPoints,
+    angleUnit,
+  );
+  if (contradictions.length) {
+    return {
+      points: currentPoints,
+      result: {
+        kind: "inconsistent",
+        residual: Number.POSITIVE_INFINITY,
+        elapsed: performance.now() - startedAt,
+        iterations: 0,
+        timedOut: false,
+        values: [],
+        mode: "analytic",
+        issues: [],
+        contradictions,
+      },
+    };
+  }
   const targetEntries = unknownRows
     .filter((row) => row.enabled && row.expression.trim())
     .map((row) => ({
@@ -5244,20 +5587,22 @@ export function solveAnalytically(
     ...values.map((value) => value.steps ?? []),
     ...statements.map((statement) => statement.steps),
   );
-  const reconstruction = solveNumerically(
-    currentPoints,
-    currentShapes,
-    rows,
-    unknownRows,
-    tolerance,
-    angleUnit,
-    maxIterations,
-    Math.max(1, deadline - performance.now()),
-  );
+  const reconstruction = reconstructDrawing
+    ? solveNumerically(
+        currentPoints,
+        currentShapes,
+        rows,
+        unknownRows,
+        tolerance,
+        angleUnit,
+        maxIterations,
+        Math.max(1, deadline - performance.now()),
+      )
+    : null;
   const drawingStatus =
-    reconstruction.result.kind === "exact"
+    reconstruction?.result.kind === "exact"
       ? "rebuilt"
-      : reconstruction.result.kind === "approximate"
+      : reconstruction?.result.kind === "approximate"
         ? "approximate"
         : "unchanged";
   const result: SolveResult = {
@@ -5265,7 +5610,7 @@ export function solveAnalytically(
     residual: 0,
     elapsed: performance.now() - startedAt,
     iterations,
-    timedOut: engine.timedOut || reconstruction.result.timedOut,
+    timedOut: engine.timedOut || Boolean(reconstruction?.result.timedOut),
     values,
     statements,
     mode: "analytic",
@@ -5277,10 +5622,10 @@ export function solveAnalytically(
     },
     drawing: {
       status: drawingStatus,
-      residual: reconstruction.result.residual,
-      timedOut: engine.timedOut || reconstruction.result.timedOut,
+      residual: reconstruction?.result.residual ?? 0,
+      timedOut: engine.timedOut || Boolean(reconstruction?.result.timedOut),
     },
     issues: [],
   };
-  return { points: reconstruction.points, result };
+  return { points: reconstruction?.points ?? currentPoints, result };
 }

@@ -1,0 +1,123 @@
+{
+  "format": "geosolver",
+  "version": 7,
+  "projectTitle": "Аполлон",
+  "points": [
+    {
+      "id": "A",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "id": "B",
+      "x": 2.121320343599014,
+      "y": 2.1213203435355417
+    },
+    {
+      "id": "C",
+      "x": 1,
+      "y": 1,
+      "t": 0.43686533922697923
+    },
+    {
+      "id": "D",
+      "x": 1.5606601718029143,
+      "y": 1.560660171764778
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-manual-1786211098276",
+      "type": "equation",
+      "points": [],
+      "color": "#5b6df9",
+      "name": "f1",
+      "equation": "distance((x; y), C) <= distance((x; y), circle(AB))",
+      "editorOrder": 4,
+      "visible": true
+    },
+    {
+      "id": "shape-1786211111407",
+      "type": "circle",
+      "points": ["A", "B"],
+      "color": "#ef6b62",
+      "editorOrder": 3
+    },
+    {
+      "id": "shape-1786215523481",
+      "type": "segment",
+      "points": ["A", "B"],
+      "color": "#26a880"
+    },
+    {
+      "id": "shape-1786215651465",
+      "type": "ellipse",
+      "points": ["C", "A", "D"],
+      "color": "#f0a11b",
+      "arc": "minor"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 6,
+      "expression": "C ∈ AB",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 7,
+      "expression": "D ∈ AB",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 8,
+      "expression": "CD = DB",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1786215651465,
+      "expression": "distinct(CAD)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1786215651466,
+      "expression": "A = (0; 0)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1786215651467,
+      "expression": "C = (1; 1)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1786215651468,
+      "expression": "AB = 3",
+      "enabled": true,
+      "color": "#ef6b62"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 5,
+      "expression": "S(f1) - S(ellipse(CAD)) = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "numerical",
+  "view": {
+    "x": -235.77476878707535,
+    "y": -7.5472215535678515,
+    "scale": 134.83679122889777
+  }
+}

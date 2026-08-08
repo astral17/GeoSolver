@@ -1,6 +1,7 @@
 export const SYMBOL_COMMANDS = [
   { command: "angle", symbol: "∠", purpose: "угол", purposeEn: "angle" },
   { command: "cap", symbol: "∩", purpose: "пересечение", purposeEn: "intersection" },
+  { command: "cup", symbol: "∪", purpose: "объединение", purposeEn: "union" },
   { command: "empty", symbol: "∅", purpose: "пустое множество", purposeEn: "empty set" },
   { command: "deg", symbol: "°", purpose: "градусы", purposeEn: "degrees" },
   { command: "in", symbol: "∈", purpose: "принадлежность", purposeEn: "membership" },

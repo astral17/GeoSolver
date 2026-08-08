@@ -33,10 +33,9 @@ import type { Locale } from "./i18n";
 import { localText } from "./i18n";
 import {
   parseConstraint,
-  solveNumerically,
   trimNumber,
 } from "./expressions";
-import { solveAnalytically } from "./analytic-solver";
+import { useSolverWorker } from "./use-solver-worker";
 import {
   angleDegrees,
   distance,
@@ -139,7 +138,6 @@ export default function Home() {
   const [view, setView] = useState({ x: 35, y: 34, scale: 74 });
   const [canvasSize, setCanvasSize] = useState({ width: 900, height: 700 });
   const [result, setResult] = useState<SolveResult>(PENDING_RESULT);
-  const [solving, setSolving] = useState(false);
   const [solverEpsilonInput, setSolverEpsilonInput] = useState(
     DEFAULT_SOLVER_EPSILON_INPUT,
   );
@@ -862,6 +860,8 @@ export default function Home() {
     findObjectAt,
     findIntersectionObjectsAt,
   } = useCanvasHitTesting({
+    angleUnit: bareAngleUnit,
+    parsedKnown,
     points,
     shapes,
     screenToWorld,
@@ -870,6 +870,7 @@ export default function Home() {
 
   useCanvasRenderer({
     activeTool,
+    angleUnit: bareAngleUnit,
     canvasRef,
     canvasSize,
     drag,
@@ -1069,8 +1070,12 @@ export default function Home() {
     moveShapeObject,
     reorderPointObject,
     reorderShapeObject,
+    reorderMixedObjects,
+    moveMixedObject,
   } = useObjectEditing({
     points,
+    shapes,
+    groups,
     selectedPoint,
     setPoints,
     setShapes,
@@ -1101,49 +1106,22 @@ export default function Home() {
     setMobilePanel("canvas");
   };
 
-  const runSolver = useCallback(() => {
-    if (solving) return;
-    setSolving(true);
-    window.setTimeout(() => {
-      const solved =
-        solverMode === "analytic"
-          ? solveAnalytically(
-              points,
-              shapes,
-              known,
-              unknown,
-              bareAngleUnit,
-              solverEpsilon,
-              solverMaxIterations,
-              solverTimeLimitMs,
-            )
-          : solveNumerically(
-              points,
-              shapes,
-              known,
-              unknown,
-              solverEpsilon,
-              bareAngleUnit,
-              solverMaxIterations,
-              solverTimeLimitMs,
-            );
-      setPoints(solved.points);
-      setResult(solved.result);
-      setSolving(false);
-      setRightOpen(true);
-    }, 80);
-  }, [
-    bareAngleUnit,
-    known,
+  const { runSolver, solving, solverProgress } = useSolverWorker({
     points,
-    solverEpsilon,
-    solverMaxIterations,
-    solverMode,
-    solverTimeLimitMs,
     shapes,
-    solving,
+    known,
     unknown,
-  ]);
+    mode: solverMode,
+    angleUnit: bareAngleUnit,
+    tolerance: solverEpsilon,
+    maxIterations: solverMaxIterations,
+    timeLimitMs: solverTimeLimitMs,
+    setPoints,
+    setResult,
+    setCanvasNotice,
+    setRightOpen,
+    translate: t,
+  });
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1735,6 +1713,8 @@ export default function Home() {
             onMoveShape={moveShapeObject}
             onReorderPoint={reorderPointObject}
             onReorderShape={reorderShapeObject}
+            onReorderObject={reorderMixedObjects}
+            onMoveObject={moveMixedObject}
           />
           <button
             className="panel-collapse"
@@ -1821,7 +1801,7 @@ export default function Home() {
                   id="selected-point-name"
                   name="selected-point-name"
                   value={renameValue}
-                  maxLength={1}
+                  maxLength={16}
                   autoComplete="off"
                   onChange={(event) => setRenameValue(event.target.value)}
                   onKeyDown={(event) => {
@@ -1934,6 +1914,7 @@ export default function Home() {
           solverMaxIterations={solverMaxIterations}
           solverTimeLimitMs={solverTimeLimitMs}
           solving={solving}
+          solverProgress={solverProgress}
           t={t}
           formatNumber={formatNumber}
           runSolver={runSolver}

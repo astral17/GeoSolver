@@ -1,0 +1,79 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "t13",
+  "points": [
+    {
+      "id": "A",
+      "x": -3.7278242489454967,
+      "y": 2.224578391532179
+    },
+    {
+      "id": "B",
+      "x": -3.698766836894365,
+      "y": 1.2250006472796904
+    },
+    {
+      "id": "C",
+      "x": -3.3435317404193543,
+      "y": 1.6015072457125938
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785610381198",
+      "type": "polygon",
+      "points": [
+        "A",
+        "B",
+        "C"
+      ],
+      "color": "#5b6df9"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785610381198,
+      "expression": "distinct(ABC)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785610381199,
+      "expression": "AB = 1",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785610381200,
+      "expression": "∠CBA = 45°",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785610381201,
+      "expression": "∠BAC = 30°",
+      "enabled": true,
+      "color": "#f0a11b"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785610381202,
+      "expression": "S(ABC) = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": {
+    "x": 1491.0324862737268,
+    "y": 650.3782219102641,
+    "scale": 447.6739123665585
+  }
+}

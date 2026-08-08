@@ -1,0 +1,127 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "t12",
+  "points": [
+    {
+      "id": "A",
+      "x": -7.8722356248395045,
+      "y": -2.9507726056666708
+    },
+    {
+      "id": "B",
+      "x": -8.094206336569865,
+      "y": 5.0461473642882515
+    },
+    {
+      "id": "C",
+      "x": 9.898863594898744,
+      "y": 5.545581465711208
+    },
+    {
+      "id": "D",
+      "x": 10.120834306614809,
+      "y": -2.4513385042780005
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785609492749",
+      "type": "polygon",
+      "points": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "color": "#5b6df9"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785609492749,
+      "expression": "AB = CD",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785609492750,
+      "expression": "BC = DA",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785609492751,
+      "expression": "AB ∥ CD",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785609492752,
+      "expression": "BC ∥ DA",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785609492753,
+      "expression": "∠DAB = 90°",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785609492754,
+      "expression": "distinct(ABCD)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785609492755,
+      "expression": "AB ∩ CD = ∅",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785609492756,
+      "expression": "BC ∩ DA = ∅",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785609492757,
+      "expression": "AB / BC = 4 / 9",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785609492758,
+      "expression": "S(ABCD) = 144",
+      "enabled": true,
+      "color": "#8c5ad7"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785609492759,
+      "expression": "AB = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785609492760,
+      "expression": "BC = ?",
+      "enabled": true,
+      "color": "#ef6b62"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": {
+    "x": 36.245858127018536,
+    "y": -34.48390669028847,
+    "scale": 36.74731248056429
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "Это ловушка",
+  "points": [
+    {
+      "id": "A",
+      "x": -1.342407534667687,
+      "y": -1.9301322099491625
+    },
+    {
+      "id": "B",
+      "x": 2.3600162343982225,
+      "y": 1.430233578540382
+    },
+    {
+      "id": "C",
+      "x": 4.610473225141856,
+      "y": 1.641275407363187
+    },
+    {
+      "id": "D",
+      "x": 4.890576246682692,
+      "y": -1.34561968575999
+    },
+    {
+      "id": "E",
+      "x": 3.0313141928064913,
+      "y": 0.6938650989307154
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785617283026",
+      "type": "polygon",
+      "points": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785617289256",
+      "type": "segment",
+      "points": [
+        "A",
+        "C"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785617291210",
+      "type": "segment",
+      "points": [
+        "B",
+        "D"
+      ],
+      "color": "#26a880"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785617283026,
+      "expression": "BC ∥ AD",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785617283027,
+      "expression": "distinct(ABCD)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785617283028,
+      "expression": "AB ∩ CD = ∅",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785617283029,
+      "expression": "BC ∩ DA = ∅",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785617293077,
+      "expression": "E = segment(AC) ∩ segment(BD)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785617304555,
+      "expression": "∠ADC = 90°",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785617304556,
+      "expression": "S(BEC) + 6 = S(AED)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785617304558,
+      "expression": "CD = 3",
+      "enabled": true,
+      "color": "#26a880"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785617304557,
+      "expression": "AB = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "0.000001",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": {
+    "x": -260.2513867194785,
+    "y": -37.509458925321866,
+    "scale": 81.78264793759797
+  }
+}

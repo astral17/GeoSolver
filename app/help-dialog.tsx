@@ -1,8 +1,11 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
+  PROJECT_EXAMPLE_CATEGORIES,
   PROJECT_EXAMPLES,
+  projectExampleCategory,
+  type ProjectExampleCategoryId,
   type ProjectExample,
 } from "./examples";
 import type { Locale } from "./i18n";
@@ -254,6 +257,27 @@ export function HelpDialog({
                 штрихи равенства, дуги углов и связанные подписи.
               </p>
               <p>
+                Единый тип <b>«Уравнение»</b> задаёт неявное множество точек.
+                Редактор определяет вид автоматически: равенство рисует границу,
+                а неравенство — область. Например, объект <code>f1</code>
+                с формулой <code>(x - x(A))^2 + (y - y(A))^2 = 3^2</code>
+                рисует окружность, а знак <code>≤</code> заполняет круг.
+                Координаты <code>x</code> и <code>y</code> внутри такого объекта
+                локальные; при совпадении с внешней переменной редактор выводит
+                предупреждение. Имя объекта используется в <code>S(f1)</code>,
+                <code>distance(f1, AB)</code> и операциях множеств.
+              </p>
+              <p>
+                Пара <code>(x; y)</code> является вычисляемой точкой, а не
+                обычными скобками. Координатами могут быть формулы, поэтому
+                допустимы <code>distance((1; a), C)</code>,{" "}
+                <code>distance((1; 2), circle(AB))</code>,{" "}
+                <code>angle((0; 0), A, (1; 0))</code> и{" "}
+                <code>S((0; 0), A, B)</code>. Последовательность из двух пар
+                задаёт отрезок, а из трёх и более — многоугольник, например{" "}
+                <code>S((0; 0)(4; 0)(0; 3))</code>.
+              </p>
+              <p>
                 Кнопка <code>⊞</code> в заголовке секции создаёт именованную
                 группу объектов, условий или целей. Перетащите строку на
                 заголовок развёрнутой группы, чтобы внести её, либо на тонкую
@@ -367,11 +391,11 @@ export function HelpDialog({
                   text="вершины образуют выпуклый многоугольник"
                 />
                 <HelpExample
-                  code="inside(ABC, DEFG)"
+                  code="ABC ∈ DEFG"
                   text="треугольник ABC находится внутри DEFG"
                 />
                 <HelpExample
-                  code="inside(A, BCD)"
+                  code="A ∈ BCD"
                   text="точка A находится внутри треугольника BCD"
                 />
                 <HelpExample
@@ -385,6 +409,14 @@ export function HelpDialog({
                 <HelpExample
                   code="{H, I} = circle(OA) ∩ circle(BC)"
                   text="полное множество точек пересечения"
+                />
+                <HelpExample
+                  code="H = AB ∩ CD ∩ EF"
+                  text="цепочка пересечений произвольной длины"
+                />
+                <HelpExample
+                  code="H ∈ f1 ∪ ABC"
+                  text="принадлежность объединению уравнения и фигуры"
                 />
                 <HelpExample code="D ∈ AB" text="точка на отрезке" />
                 <HelpExample code="D ∈ line(AB)" text="точка на прямой" />
@@ -405,6 +437,9 @@ export function HelpDialog({
                 <code>{"{H, I}"} ∈ … ∩ …</code> не запрещает дополнительные
                 точки. Пустое множество можно писать с любой стороны:
                 <code> ∅ = AB ∩ CD</code> или <code>AB ∩ CD = ∅</code>.
+                Пересечение имеет приоритет над объединением <code>∪</code>;
+                порядок можно явно задать скобками. Команды <code>\cap</code>
+                и <code>\cup</code> превращаются в соответствующие символы.
               </p>
               <div className="help-callout warning">
                 Если строка ссылается на удалённую точку, GeoSolver покажет
@@ -760,6 +795,27 @@ function EnglishHelpDialog({
                 and related annotations.
               </p>
               <p>
+                The single <b>Equation</b> type defines implicit point sets.
+                Equality draws a boundary, while an inequality creates a region
+                automatically. For example, an object named <code>f1</code> with{" "}
+                <code>(x - x(A))^2 + (y - y(A))^2 = 3^2</code> draws a circle;
+                replacing equality with <code>≤</code> fills its disk. The local
+                coordinates <code>x</code> and <code>y</code> shadow external
+                variables, which is reported below the object row. Use the name
+                in <code>S(f1)</code>, <code>distance(f1, AB)</code>, and set
+                expressions.
+              </p>
+              <p>
+                A pair such as <code>(x; y)</code> is a computed point rather
+                than grouping parentheses. Its coordinates may be formulas,
+                so <code>distance((1; a), C)</code>,{" "}
+                <code>distance((1; 2), circle(AB))</code>,{" "}
+                <code>angle((0; 0), A, (1; 0))</code>, and{" "}
+                <code>S((0; 0), A, B)</code> are valid. Two adjacent pairs
+                form a segment; three or more form a polygon, for example{" "}
+                <code>S((0; 0)(4; 0)(0; 3))</code>.
+              </p>
+              <p>
                 The <code>⊞</code> button in a section header creates a named
                 group of objects, conditions or targets. Drag a row onto an
                 expanded group header to place it inside, or onto the thin line
@@ -861,11 +917,11 @@ function EnglishHelpDialog({
                 />
                 <HelpExample code="convex(ABCD)" text="convex polygon" />
                 <HelpExample
-                  code="inside(ABC, DEFG)"
+                  code="ABC ∈ DEFG"
                   text="triangle ABC lies inside DEFG"
                 />
                 <HelpExample
-                  code="inside(A, BCD)"
+                  code="A ∈ BCD"
                   text="point A lies inside triangle BCD"
                 />
                 <HelpExample
@@ -880,6 +936,14 @@ function EnglishHelpDialog({
                   code="{H, I} = circle(OA) ∩ circle(BC)"
                   text="the complete intersection set"
                 />
+                <HelpExample
+                  code="H = AB ∩ CD ∩ EF"
+                  text="an intersection chain of arbitrary length"
+                />
+                <HelpExample
+                  code="H ∈ f1 ∪ ABC"
+                  text="membership in a union of an equation and a shape"
+                />
                 <HelpExample code="D ∈ circle(OA)" text="point on a circle" />
                 <HelpExample code="D ∈ arc(OAB)" text="point on a visible arc" />
                 <HelpExample
@@ -893,6 +957,9 @@ function EnglishHelpDialog({
                 <code>{"{H}"} = EG ∩ DF</code>. Membership such as{" "}
                 <code>{"{H, I}"} ∈ … ∩ …</code> permits additional points.
                 The empty set is accepted on either side of equality.
+                Intersection binds tighter than union; parentheses override the
+                order. <code>\cap</code> and <code>\cup</code> expand to their
+                set symbols.
               </p>
               <div className="help-callout warning">
                 A constraint that references a deleted point is marked as an
@@ -1023,20 +1090,45 @@ function HelpProjectExamples({
   locale: Locale;
   onLoadExample: (example: ProjectExample) => void;
 }) {
+  const [category, setCategory] = useState<ProjectExampleCategoryId>("basics");
+  const examples = PROJECT_EXAMPLES.filter(
+    (example) => projectExampleCategory(example) === category,
+  );
   return (
-    <div className="help-project-grid">
-      {PROJECT_EXAMPLES.map((example) => (
-        <article className="help-project-card" key={example.id}>
-          <div>
-            <b>{example.title[locale]}</b>
-            <p>{example.description[locale]}</p>
-          </div>
-          <button type="button" onClick={() => onLoadExample(example)}>
-            {locale === "ru" ? "Загрузить в редактор" : "Load in editor"}
-            <span aria-hidden="true">→</span>
+    <div className="help-project-browser">
+      <div className="help-project-tabs" role="tablist">
+        {PROJECT_EXAMPLE_CATEGORIES.map((item) => (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={category === item.id}
+            className={category === item.id ? "active" : ""}
+            onClick={() => setCategory(item.id)}
+            key={item.id}
+          >
+            {item.title[locale]}
+            <span>
+              {PROJECT_EXAMPLES.filter(
+                (example) => projectExampleCategory(example) === item.id,
+              ).length}
+            </span>
           </button>
-        </article>
-      ))}
+        ))}
+      </div>
+      <div className="help-project-grid">
+        {examples.map((example) => (
+          <article className="help-project-card" key={example.id}>
+            <div>
+              <b>{example.title[locale]}</b>
+              <p>{example.description[locale]}</p>
+            </div>
+            <button type="button" onClick={() => onLoadExample(example)}>
+              {locale === "ru" ? "Загрузить в редактор" : "Load in editor"}
+              <span aria-hidden="true">→</span>
+            </button>
+          </article>
+        ))}
+      </div>
     </div>
   );
 }

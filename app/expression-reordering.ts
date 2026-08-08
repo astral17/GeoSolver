@@ -10,8 +10,10 @@ import {
 import type React from "react";
 import type { EditorGroup, ExpressionRow } from "./domain";
 import {
-  buildGroupedEntries,
   focusAdjacentEditorEntry,
+  materializeEditorOrder,
+  moveEditorRow,
+  moveEditorRowOneStep,
 } from "./editor-groups";
 
 type ExpressionGroup = "known" | "unknown";
@@ -42,13 +44,81 @@ export function useExpressionReordering({
   const draggedMembershipRef = useRef<string | undefined>(undefined);
   const dragCleanupRef = useRef<(() => void) | null>(null);
   const lastDragZoneRef = useRef<string | null>(null);
+  const lastPointerYRef = useRef<number | null>(null);
+  const dragAnchorRef = useRef<{
+    pointerY: number;
+    offsetY: number;
+    scrollRegion: HTMLElement;
+  } | null>(null);
+  const knownRef = useRef(known);
+  const unknownRef = useRef(unknown);
+  const groupsRef = useRef(groups);
+
+  useEffect(() => {
+    knownRef.current = known;
+    unknownRef.current = unknown;
+    groupsRef.current = groups;
+  }, [groups, known, unknown]);
 
   useEffect(() => () => dragCleanupRef.current?.(), []);
 
   const rowsFor = (group: ExpressionGroup) =>
-    group === "known" ? known : unknown;
+    group === "known" ? knownRef.current : unknownRef.current;
   const setterFor = (group: ExpressionGroup) =>
     group === "known" ? setKnown : setUnknown;
+
+  const commitOrderedMove = (
+    section: ExpressionGroup,
+    sourceId: number,
+    parentGroupId: string | undefined,
+    target: { kind: "item" | "group"; id: string } | null,
+    placement: "before" | "after" | "first" | "last",
+  ) => {
+    const rows = section === "known" ? knownRef.current : unknownRef.current;
+    const sectionGroups = groupsRef.current.filter(
+      (group) => group.section === section,
+    );
+    const moved = moveEditorRow(
+      rows,
+      sectionGroups,
+      sourceId,
+      parentGroupId,
+      target,
+      placement,
+    );
+    if (section === "known") {
+      knownRef.current = moved.items;
+      setKnown(moved.items);
+    } else {
+      unknownRef.current = moved.items;
+      setUnknown(moved.items);
+    }
+    const movedGroups = new Map(moved.groups.map((group) => [group.id, group]));
+    groupsRef.current = groupsRef.current.map(
+      (group) => movedGroups.get(group.id) ?? group,
+    );
+    setGroups(groupsRef.current);
+    draggedMembershipRef.current = parentGroupId;
+    markDirty();
+  };
+  const descendantGroupIds = (groupId: string) => {
+    const ids = new Set<string>([groupId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      groups.forEach((candidate) => {
+        if (
+          candidate.parentGroupId &&
+          ids.has(candidate.parentGroupId) &&
+          !ids.has(candidate.id)
+        ) {
+          ids.add(candidate.id);
+          changed = true;
+        }
+      });
+    }
+    return ids;
+  };
 
   const reorderExpressionRows = (
     group: ExpressionGroup,
@@ -78,27 +148,23 @@ export function useExpressionReordering({
     sourceId: number,
     targetGroupId: string,
   ) => {
-    setGroups((current) =>
-      current.map((item) =>
-        item.id === targetGroupId
-          ? {
-              ...item,
-              anchorId: String(sourceId),
-              anchorSide: "before",
-            }
-          : item,
-      ),
-    );
+    const parentGroupId = groups.find(
+      (item) => item.id === targetGroupId,
+    )?.parentGroupId;
+    const descendantIds = descendantGroupIds(targetGroupId);
     setterFor(group)((current) => {
       const sourceIndex = current.findIndex((row) => row.id === sourceId);
       const source = current.find((row) => row.id === sourceId);
       if (!source) return current;
       const currentFirstMember = current.findIndex(
-        (row) => row.groupId === targetGroupId && row.id !== sourceId,
+        (row) =>
+          Boolean(row.groupId && descendantIds.has(row.groupId)) &&
+          row.id !== sourceId,
       );
       const firstUngroupedAfterGroup = current.findIndex(
         (row, index) =>
-          index > currentFirstMember && row.groupId !== targetGroupId,
+          index > currentFirstMember &&
+          (!row.groupId || !descendantIds.has(row.groupId)),
       );
       if (
         source.groupId === undefined &&
@@ -109,12 +175,12 @@ export function useExpressionReordering({
       }
       const next = current.filter((row) => row.id !== sourceId);
       const memberIndices = next.flatMap((row, index) =>
-        row.groupId === targetGroupId ? [index] : [],
+        row.groupId && descendantIds.has(row.groupId) ? [index] : [],
       );
       const insertIndex = memberIndices.length
         ? memberIndices[memberIndices.length - 1] + 1
         : next.length;
-      next.splice(insertIndex, 0, { ...source, groupId: undefined });
+      next.splice(insertIndex, 0, { ...source, groupId: parentGroupId });
       return next;
     });
     markDirty();
@@ -125,27 +191,20 @@ export function useExpressionReordering({
     sourceId: number,
     targetGroupId: string,
   ) => {
-    setGroups((current) =>
-      current.map((item) =>
-        item.id === targetGroupId
-          ? {
-              ...item,
-              anchorId: String(sourceId),
-              anchorSide: "after",
-            }
-          : item,
-      ),
-    );
+    const parentGroupId = groups.find(
+      (item) => item.id === targetGroupId,
+    )?.parentGroupId;
+    const descendantIds = descendantGroupIds(targetGroupId);
     setterFor(group)((current) => {
       const source = current.find((row) => row.id === sourceId);
       if (!source) return current;
       const next = current.filter((row) => row.id !== sourceId);
       const firstMemberIndex = next.findIndex(
-        (row) => row.groupId === targetGroupId,
+        (row) => Boolean(row.groupId && descendantIds.has(row.groupId)),
       );
       const insertIndex =
         firstMemberIndex >= 0 ? firstMemberIndex : next.length;
-      next.splice(insertIndex, 0, { ...source, groupId: undefined });
+      next.splice(insertIndex, 0, { ...source, groupId: parentGroupId });
       return next;
     });
     markDirty();
@@ -176,37 +235,17 @@ export function useExpressionReordering({
     markDirty();
   };
 
-  const isExpandedGroup = (
-    section: ExpressionGroup,
-    groupId: string | undefined,
-  ) =>
-    Boolean(
-      groupId &&
-        groups.some(
-          (item) =>
-            item.section === section &&
-            item.id === groupId &&
-            !item.collapsed,
-        ),
-    );
-
   const placeExpressionAcrossEmptyGroup = (
+    group: ExpressionGroup,
     sourceId: number,
     targetGroupId: string,
     direction: -1 | 1,
   ) => {
-    setGroups((current) =>
-      current.map((item) =>
-        item.id === targetGroupId
-          ? {
-              ...item,
-              anchorId: String(sourceId),
-              anchorSide: direction === 1 ? "before" : "after",
-            }
-          : item,
-      ),
-    );
-    markDirty();
+    if (direction === 1) {
+      placeExpressionAfterGroup(group, sourceId, targetGroupId);
+    } else {
+      placeExpressionBeforeGroup(group, sourceId, targetGroupId);
+    }
   };
 
   const moveExpressionRow = (
@@ -215,67 +254,30 @@ export function useExpressionReordering({
     direction: -1 | 1,
   ) => {
     const rows = rowsFor(group);
-    const sectionGroups = groups.filter((item) => item.section === group);
-    const entries = buildGroupedEntries(rows, sectionGroups);
-    const index = entries.findIndex(
-      (entry) => entry.kind === "item" && entry.item.id === id,
+    const sectionGroups = groupsRef.current.filter(
+      (item) => item.section === group,
     );
-    if (index < 0) return;
-    const source = rows.find((row) => row.id === id);
-    if (!source) return;
-    const sourceGroupId = isExpandedGroup(group, source.groupId)
-      ? source.groupId
-      : undefined;
-    const targetEntry = entries[index + direction];
-    if (!targetEntry) return;
-    if (targetEntry.kind === "group") {
-      if (targetEntry.group.id === sourceGroupId) {
-        placeExpressionBeforeGroup(group, id, targetEntry.group.id);
-      } else if (targetEntry.count === 0 && targetEntry.group.collapsed) {
-        placeExpressionAcrossEmptyGroup(
-          id,
-          targetEntry.group.id,
-          direction,
-        );
-      } else if (targetEntry.group.collapsed) {
-        if (direction === 1) {
-          placeExpressionAfterGroup(group, id, targetEntry.group.id);
-        } else {
-          placeExpressionBeforeGroup(group, id, targetEntry.group.id);
-        }
-      } else {
-        enterExpressionGroup(
-          group,
-          id,
-          targetEntry.group.id,
-          direction === 1 ? "first" : "last",
-        );
-      }
-      return;
+    const moved = moveEditorRowOneStep(
+      rows,
+      sectionGroups,
+      id,
+      direction,
+    );
+    if (group === "known") {
+      knownRef.current = moved.items;
+      setKnown(moved.items);
+    } else {
+      unknownRef.current = moved.items;
+      setUnknown(moved.items);
     }
-    if (targetEntry.kind === "groupEnd") {
-      if (targetEntry.group.id === sourceGroupId) {
-        placeExpressionAfterGroup(group, id, targetEntry.group.id);
-      } else {
-        enterExpressionGroup(group, id, targetEntry.group.id, "last");
-      }
-      return;
-    }
-
-    const target = targetEntry.item;
-    const targetGroupId = isExpandedGroup(group, target.groupId)
-      ? target.groupId
-      : undefined;
-    if (!sourceGroupId && targetGroupId) {
-      enterExpressionGroup(
-        group,
-        id,
-        targetGroupId,
-        direction === 1 ? "first" : "last",
-      );
-      return;
-    }
-    reorderExpressionRows(group, id, target.id);
+    const movedGroups = new Map(
+      moved.groups.map((editorGroup) => [editorGroup.id, editorGroup]),
+    );
+    groupsRef.current = groupsRef.current.map(
+      (editorGroup) => movedGroups.get(editorGroup.id) ?? editorGroup,
+    );
+    setGroups(groupsRef.current);
+    markDirty();
   };
 
   const focusAdjacentExpression = (
@@ -298,12 +300,49 @@ export function useExpressionReordering({
     onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
       event.preventDefault();
       event.currentTarget.focus({ preventScroll: true });
+      const materialized = materializeEditorOrder(
+        rowsFor(group),
+        groupsRef.current.filter((item) => item.section === group),
+      );
+      if (group === "known") {
+        knownRef.current = materialized.items;
+        setKnown(materialized.items);
+      } else {
+        unknownRef.current = materialized.items;
+        setUnknown(materialized.items);
+      }
+      const materializedGroups = new Map(
+        materialized.groups.map((item) => [item.id, item]),
+      );
+      groupsRef.current = groupsRef.current.map(
+        (item) => materializedGroups.get(item.id) ?? item,
+      );
+      setGroups(groupsRef.current);
       const next = { group, id };
       draggedExpressionRef.current = next;
       draggedMembershipRef.current = rowsFor(group).find(
         (row) => row.id === id,
       )?.groupId;
+      const sourceRow = event.currentTarget.closest<HTMLElement>(
+        "[data-expression-row]",
+      );
+      const sourceBounds = sourceRow?.getBoundingClientRect();
+      const scrollRegion = event.currentTarget.closest<HTMLElement>(
+        ".expressions",
+      );
+      dragAnchorRef.current =
+        sourceBounds && scrollRegion
+          ? {
+              pointerY: event.clientY,
+              offsetY: Math.max(
+                0,
+                Math.min(sourceBounds.height, event.clientY - sourceBounds.top),
+              ),
+              scrollRegion,
+            }
+          : null;
       lastDragZoneRef.current = null;
+      lastPointerYRef.current = event.clientY;
       setDraggedExpression(next);
 
       dragCleanupRef.current?.();
@@ -311,17 +350,121 @@ export function useExpressionReordering({
         const current = draggedExpressionRef.current;
         if (!current || current.group !== group || current.id !== id) return;
         moveEvent.preventDefault();
+        const pointerDirection =
+          lastPointerYRef.current === null
+            ? 0
+            : Math.sign(moveEvent.clientY - lastPointerYRef.current);
+        if (dragAnchorRef.current) {
+          dragAnchorRef.current.pointerY = moveEvent.clientY;
+          if (moveEvent.clientY < 0) {
+            dragAnchorRef.current.scrollRegion.scrollBy({
+              top: -Math.max(8, -moveEvent.clientY),
+            });
+          } else if (moveEvent.clientY > window.innerHeight) {
+            dragAnchorRef.current.scrollRegion.scrollBy({
+              top: Math.max(8, moveEvent.clientY - window.innerHeight),
+            });
+          }
+        }
+        if (
+          lastPointerYRef.current !== null &&
+          Math.abs(moveEvent.clientY - lastPointerYRef.current) < 6
+        ) {
+          return;
+        }
+        lastPointerYRef.current = moveEvent.clientY;
+        const hitBounds = dragAnchorRef.current?.scrollRegion.getBoundingClientRect();
         const hit = document.elementFromPoint(
-          moveEvent.clientX,
+          hitBounds ? hitBounds.left + hitBounds.width / 2 : moveEvent.clientX,
           moveEvent.clientY,
         );
-        const scrollRegion = hit?.closest<HTMLElement>(".expressions");
-        if (scrollRegion) {
-          const bounds = scrollRegion.getBoundingClientRect();
-          if (moveEvent.clientY < bounds.top + 54) {
-            scrollRegion.scrollBy({ top: -14 });
-          } else if (moveEvent.clientY > bounds.bottom - 54) {
-            scrollRegion.scrollBy({ top: 14 });
+        {
+          const orderedBoundary = hit?.closest<HTMLElement>(
+            "[data-editor-group-boundary]",
+          );
+          if (
+            orderedBoundary?.dataset.editorGroupSection === group &&
+            orderedBoundary.dataset.editorGroupId
+          ) {
+            const targetGroupId = orderedBoundary.dataset.editorGroupId;
+            const targetGroup = groupsRef.current.find(
+              (item) => item.id === targetGroupId,
+            );
+            const zoneKey = `ordered-boundary:${targetGroupId}:${draggedMembershipRef.current}`;
+            if (lastDragZoneRef.current === zoneKey) return;
+            lastDragZoneRef.current = zoneKey;
+            if (draggedMembershipRef.current === targetGroupId) {
+              commitOrderedMove(
+                group,
+                id,
+                targetGroup?.parentGroupId,
+                { kind: "group", id: targetGroupId },
+                "after",
+              );
+            } else {
+              commitOrderedMove(group, id, targetGroupId, null, "last");
+            }
+            return;
+          }
+          const orderedGroup = hit?.closest<HTMLElement>(
+            ".editor-group-header[data-editor-group-id]",
+          );
+          if (
+            orderedGroup?.dataset.editorGroupSection === group &&
+            orderedGroup.dataset.editorGroupId
+          ) {
+            const targetGroupId = orderedGroup.dataset.editorGroupId;
+            const targetGroup = groupsRef.current.find(
+              (item) => item.id === targetGroupId,
+            );
+            if (!targetGroup) return;
+            const bounds = orderedGroup.getBoundingClientRect();
+            const relativeY = (moveEvent.clientY - bounds.top) / bounds.height;
+            const collapsed = orderedGroup.dataset.editorGroupCollapsed === "true";
+            const action = pointerDirection < 0
+              ? "before"
+              : !collapsed && relativeY >= 0.58
+              ? "inside"
+              : relativeY < 0.58
+                ? "before"
+                : "after";
+            const zoneKey = `ordered-group:${targetGroupId}:${action}`;
+            if (lastDragZoneRef.current === zoneKey) return;
+            lastDragZoneRef.current = zoneKey;
+            if (action === "inside") {
+              commitOrderedMove(group, id, targetGroupId, null, "first");
+            } else {
+              commitOrderedMove(
+                group,
+                id,
+                targetGroup.parentGroupId,
+                { kind: "group", id: targetGroupId },
+                action,
+              );
+            }
+            return;
+          }
+          const orderedRow = hit?.closest<HTMLElement>(
+            `[data-expression-group="${group}"][data-expression-row]`,
+          );
+          const targetId = Number(orderedRow?.dataset.expressionRow);
+          if (orderedRow && Number.isSafeInteger(targetId) && targetId !== id) {
+            const bounds = orderedRow.getBoundingClientRect();
+            const placement = moveEvent.clientY < bounds.top + bounds.height / 2
+              ? "before"
+              : "after";
+            const parentGroupId = orderedRow.dataset.expressionGroupId || undefined;
+            const zoneKey = `ordered-row:${targetId}:${placement}`;
+            if (lastDragZoneRef.current === zoneKey) return;
+            lastDragZoneRef.current = zoneKey;
+            commitOrderedMove(
+              group,
+              id,
+              parentGroupId,
+              { kind: "item", id: String(targetId) },
+              placement,
+            );
+            return;
           }
         }
         const boundary = hit?.closest<HTMLElement>(
@@ -338,7 +481,9 @@ export function useExpressionReordering({
           lastDragZoneRef.current = zoneKey;
           if (draggedMembershipRef.current === targetGroupId) {
             placeExpressionAfterGroup(group, id, targetGroupId);
-            draggedMembershipRef.current = undefined;
+            draggedMembershipRef.current = groups.find(
+              (item) => item.id === targetGroupId,
+            )?.parentGroupId;
           } else {
             enterExpressionGroup(group, id, targetGroupId, "last");
             draggedMembershipRef.current = targetGroupId;
@@ -353,43 +498,60 @@ export function useExpressionReordering({
           groupTarget.dataset.editorGroupId !== undefined
         ) {
           const groupId = groupTarget.dataset.editorGroupId || undefined;
-          const zoneKey = `group:${groupId}`;
-          if (lastDragZoneRef.current === zoneKey) return;
-          lastDragZoneRef.current = zoneKey;
           const sourceGroupId = draggedMembershipRef.current;
           const isCollapsed =
             groupTarget.dataset.editorGroupCollapsed === "true";
           const targetCount = Number(
             groupTarget.dataset.editorGroupCount ?? 0,
           );
-          const sourceElement = document.querySelector<HTMLElement>(
-            `[data-expression-group="${group}"][data-expression-row="${id}"]`,
-          );
-          const sourceCenter =
-            (sourceElement?.getBoundingClientRect().top ??
-              moveEvent.clientY) +
-            (sourceElement?.getBoundingClientRect().height ?? 0) / 2;
           const targetBounds = groupTarget.getBoundingClientRect();
-          const direction: -1 | 1 =
-            targetBounds.top + targetBounds.height / 2 < sourceCenter
-              ? -1
-              : 1;
+          const relativeY =
+            (moveEvent.clientY - targetBounds.top) / targetBounds.height;
+          const direction: -1 | 1 = relativeY < 0.58 ? -1 : 1;
+          const action =
+            groupId && !isCollapsed && relativeY >= 0.58
+              ? "inside"
+              : direction === -1
+                ? "before"
+                : "after";
+          const zoneKey = `group:${groupId}:${action}`;
+          if (lastDragZoneRef.current === zoneKey) return;
+          lastDragZoneRef.current = zoneKey;
           if (groupId && targetCount === 0 && isCollapsed) {
-            placeExpressionAcrossEmptyGroup(id, groupId, direction);
-            draggedMembershipRef.current = undefined;
+            placeExpressionAcrossEmptyGroup(group, id, groupId, direction);
+            draggedMembershipRef.current = groups.find(
+              (item) => item.id === groupId,
+            )?.parentGroupId;
           } else if (groupId && isCollapsed) {
             if (direction === 1) {
               placeExpressionAfterGroup(group, id, groupId);
             } else {
               placeExpressionBeforeGroup(group, id, groupId);
             }
-            draggedMembershipRef.current = undefined;
+            draggedMembershipRef.current = groups.find(
+              (item) => item.id === groupId,
+            )?.parentGroupId;
           } else if (groupId && sourceGroupId === groupId) {
             placeExpressionBeforeGroup(group, id, groupId);
-            draggedMembershipRef.current = undefined;
-          } else if (groupId && sourceGroupId !== groupId) {
+            draggedMembershipRef.current = groups.find(
+              (item) => item.id === groupId,
+            )?.parentGroupId;
+          } else if (
+            groupId &&
+            sourceGroupId !== groupId &&
+            action === "inside"
+          ) {
             enterExpressionGroup(group, id, groupId, "first");
             draggedMembershipRef.current = groupId;
+          } else if (groupId && sourceGroupId !== groupId) {
+            if (direction === -1) {
+              placeExpressionBeforeGroup(group, id, groupId);
+            } else {
+              placeExpressionAfterGroup(group, id, groupId);
+            }
+            draggedMembershipRef.current = groups.find(
+              (item) => item.id === groupId,
+            )?.parentGroupId;
           } else if (!groupId && sourceGroupId) {
             setterFor(group)((currentRows) =>
               currentRows.map((row) =>
@@ -433,7 +595,9 @@ export function useExpressionReordering({
               } else {
                 placeExpressionAfterGroup(group, id, sourceGroupId);
               }
-              draggedMembershipRef.current = undefined;
+              draggedMembershipRef.current = groups.find(
+                (item) => item.id === sourceGroupId,
+              )?.parentGroupId;
               return;
             }
             const sourceCenter =
@@ -473,11 +637,14 @@ export function useExpressionReordering({
                 crossedGroup.dataset.editorGroupCollapsed === "true"
               ) {
                 placeExpressionAcrossEmptyGroup(
+                  group,
                   id,
                   crossedGroupId,
                   direction,
                 );
-                draggedMembershipRef.current = undefined;
+                draggedMembershipRef.current = groups.find(
+                  (item) => item.id === crossedGroupId,
+                )?.parentGroupId;
               } else if (
                 crossedGroup.dataset.editorGroupCollapsed === "true"
               ) {
@@ -494,7 +661,9 @@ export function useExpressionReordering({
                     crossedGroupId,
                   );
                 }
-                draggedMembershipRef.current = undefined;
+                draggedMembershipRef.current = groups.find(
+                  (item) => item.id === crossedGroupId,
+                )?.parentGroupId;
               } else {
                 enterExpressionGroup(
                   group,
@@ -527,7 +696,9 @@ export function useExpressionReordering({
         dragCleanupRef.current = null;
         draggedExpressionRef.current = null;
         draggedMembershipRef.current = undefined;
+        dragAnchorRef.current = null;
         lastDragZoneRef.current = null;
+        lastPointerYRef.current = null;
         setDraggedExpression(null);
       };
       dragCleanupRef.current = finish;

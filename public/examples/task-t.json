@@ -1,0 +1,141 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "taskT",
+  "points": [
+    {
+      "id": "A",
+      "x": 1.221339170767783,
+      "y": -3.063846218473849
+    },
+    {
+      "id": "B",
+      "x": 5.562037642678315,
+      "y": 4.4759373843458565
+    },
+    {
+      "id": "C",
+      "x": -1.926736390158543,
+      "y": -0.515882272363345
+    },
+    {
+      "id": "D",
+      "x": 2.568452489622162,
+      "y": -0.7239133758607372
+    },
+    {
+      "id": "E",
+      "x": 2.2336936281395774,
+      "y": 2.2573508701697187
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1786018053138",
+      "type": "polygon",
+      "points": [
+        "A",
+        "B",
+        "C"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1786018065420",
+      "type": "segment",
+      "points": [
+        "C",
+        "D"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1786018071348",
+      "type": "segment",
+      "points": [
+        "D",
+        "E"
+      ],
+      "color": "#26a880"
+    }
+  ],
+  "measurements": [
+    {
+      "id": 1786018415865,
+      "kind": "distance",
+      "points": [
+        "C",
+        "D"
+      ],
+      "color": "#f0a11b"
+    }
+  ],
+  "known": [
+    {
+      "id": 1786018053138,
+      "expression": "distinct(ABC)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1786018060199,
+      "expression": "D ∈ AB",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1786018068021,
+      "expression": "E ∈ BC",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1786018217678,
+      "expression": "∠ACD = ∠DCE",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1786018248677,
+      "expression": "∠CAD = ∠CDE",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1786018271443,
+      "expression": "BE = 4",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1786018276681,
+      "expression": "EC = 5",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1786018285183,
+      "expression": "DE = 3",
+      "enabled": true,
+      "color": "#26a880"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1786018285184,
+      "expression": "CD = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": {
+    "x": -20.909733293071238,
+    "y": -40.88842328715602,
+    "scale": 51.580958441117915
+  }
+}

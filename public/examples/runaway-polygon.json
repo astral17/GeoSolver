@@ -1,0 +1,540 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "Уехалиугольник",
+  "points": [
+    {
+      "id": "A",
+      "x": -1.1748045768137958,
+      "y": -3.217964517544811
+    },
+    {
+      "id": "B",
+      "x": -3.4814873770730603,
+      "y": -0.0777306261894788
+    },
+    {
+      "id": "C",
+      "x": -1.9153064534622384,
+      "y": 3.4900322229907697
+    },
+    {
+      "id": "D",
+      "x": 1.9575572704099662,
+      "y": 3.9175611808206443
+    },
+    {
+      "id": "E",
+      "x": 4.264240070674393,
+      "y": 0.7773272894662905
+    },
+    {
+      "id": "F",
+      "x": 2.698059147062687,
+      "y": -2.7904355597152897
+    },
+    {
+      "id": "G",
+      "x": -1.9074344093486824,
+      "y": -1.3388106751229152
+    },
+    {
+      "id": "H",
+      "x": -0.028280566923547426,
+      "y": -0.6061808425980102
+    },
+    {
+      "id": "I",
+      "x": 0.7043492656108121,
+      "y": -2.485334685019563
+    },
+    {
+      "id": "J",
+      "x": -2.220407328144369,
+      "y": 1.496322341537932
+    },
+    {
+      "id": "K",
+      "x": -0.6463543604200093,
+      "y": 0.23524229260465296
+    },
+    {
+      "id": "L",
+      "x": 0.07840342798768891,
+      "y": 3.1849313482920247
+    },
+    {
+      "id": "M",
+      "x": -0.22669744669444222,
+      "y": 1.1912214668399732
+    },
+    {
+      "id": "N",
+      "x": 2.6901871029498587,
+      "y": 2.038407338401747
+    },
+    {
+      "id": "O",
+      "x": 0.8110332605267547,
+      "y": 1.3057775058727814
+    },
+    {
+      "id": "P",
+      "x": 3.003160021742867,
+      "y": -0.7967256782606491
+    },
+    {
+      "id": "Q",
+      "x": 1.4291070540183992,
+      "y": 0.4643543706746595
+    },
+    {
+      "id": "R",
+      "x": 1.0094501402909546,
+      "y": -0.49162480356566296
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785591578386",
+      "type": "polygon",
+      "points": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785591589915",
+      "type": "polygon",
+      "points": [
+        "A",
+        "G",
+        "H",
+        "I"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785591595128",
+      "type": "polygon",
+      "points": [
+        "G",
+        "B",
+        "J",
+        "K"
+      ],
+      "color": "#26a880"
+    },
+    {
+      "id": "shape-1785591600370",
+      "type": "polygon",
+      "points": [
+        "J",
+        "C",
+        "L",
+        "M"
+      ],
+      "color": "#f0a11b"
+    },
+    {
+      "id": "shape-1785591607049",
+      "type": "polygon",
+      "points": [
+        "L",
+        "D",
+        "N",
+        "O"
+      ],
+      "color": "#8c5ad7"
+    },
+    {
+      "id": "shape-1785591616625",
+      "type": "polygon",
+      "points": [
+        "N",
+        "E",
+        "P",
+        "Q"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785591622123",
+      "type": "polygon",
+      "points": [
+        "P",
+        "F",
+        "I",
+        "R"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785591637186",
+      "type": "polygon",
+      "points": [
+        "H",
+        "K",
+        "O",
+        "Q"
+      ],
+      "color": "#26a880"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785591578386,
+      "expression": "∠FAB = ∠ABC = ∠BCD = ∠CDE = ∠DEF = ∠EFA",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785591578387,
+      "expression": "AB = BC = CD = DE = EF = FA",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785591578388,
+      "expression": "distinct(ABCDEF)",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785591578389,
+      "expression": "convex(ABCDEF)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785591589914,
+      "expression": "AG = GH = HI = IA",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785591589915,
+      "expression": "AG ∥ HI",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785591589916,
+      "expression": "GH ∥ IA",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785591589917,
+      "expression": "∠IAG = 90°",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785591589918,
+      "expression": "distinct(AGHI)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785591589919,
+      "expression": "AG ∩ HI = ∅",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785591589920,
+      "expression": "GH ∩ IA = ∅",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785591595128,
+      "expression": "GB = BJ = JK = KG",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785591595129,
+      "expression": "GB ∥ JK",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785591595130,
+      "expression": "BJ ∥ KG",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785591595131,
+      "expression": "∠KGB = 90°",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785591595132,
+      "expression": "distinct(GBJK)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785591595133,
+      "expression": "GB ∩ JK = ∅",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785591595134,
+      "expression": "BJ ∩ KG = ∅",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785591600370,
+      "expression": "JC = CL = LM = MJ",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785591600371,
+      "expression": "JC ∥ LM",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785591600372,
+      "expression": "CL ∥ MJ",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785591600373,
+      "expression": "∠MJC = 90°",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785591600374,
+      "expression": "distinct(JCLM)",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785591600375,
+      "expression": "JC ∩ LM = ∅",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785591600376,
+      "expression": "CL ∩ MJ = ∅",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785591607049,
+      "expression": "LD = DN = NO = OL",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785591607050,
+      "expression": "LD ∥ NO",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785591607051,
+      "expression": "DN ∥ OL",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785591607052,
+      "expression": "∠OLD = 90°",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785591607053,
+      "expression": "distinct(LDNO)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785591607054,
+      "expression": "LD ∩ NO = ∅",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785591607055,
+      "expression": "DN ∩ OL = ∅",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785591616625,
+      "expression": "NE = EP = PQ = QN",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785591616626,
+      "expression": "NE ∥ PQ",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785591616627,
+      "expression": "EP ∥ QN",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785591616628,
+      "expression": "∠QNE = 90°",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785591616629,
+      "expression": "distinct(NEPQ)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785591616630,
+      "expression": "NE ∩ PQ = ∅",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785591616631,
+      "expression": "EP ∩ QN = ∅",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785591622123,
+      "expression": "PF = FI = IR = RP",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785591622124,
+      "expression": "PF ∥ IR",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785591622125,
+      "expression": "FI ∥ RP",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785591622126,
+      "expression": "∠RPF = 90°",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785591622127,
+      "expression": "distinct(PFIR)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785591622128,
+      "expression": "PF ∩ IR = ∅",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785591622129,
+      "expression": "FI ∩ RP = ∅",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785591637186,
+      "expression": "HK = OQ",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785591637187,
+      "expression": "KO = QH",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785591637188,
+      "expression": "HK ∥ OQ",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785591637189,
+      "expression": "KO ∥ QH",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785591637190,
+      "expression": "∠QHK = 90°",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785591637191,
+      "expression": "distinct(HKOQ)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785591637192,
+      "expression": "HK ∩ OQ = ∅",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785591637193,
+      "expression": "KO ∩ QH = ∅",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785591637194,
+      "expression": "S(AGHI) = S(GBJK) = S(JCLM) = S(LDNO) = S(NEPQ) = S(PRIF)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785591637195,
+      "expression": "(S(AGHI) + S(GBJK) + S(JCLM) + S(LDNO) + S(NEPQ) + S(PRIF) + S(KOQH)) / S(ABCDEF) = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": {
+    "x": 35,
+    "y": 34,
+    "scale": 74
+  }
+}

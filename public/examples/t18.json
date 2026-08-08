@@ -1,0 +1,167 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "t18",
+  "points": [
+    {
+      "id": "A",
+      "x": -1.4100382014470245,
+      "y": -0.7735294766917915
+    },
+    {
+      "id": "B",
+      "x": 2.188499433010404,
+      "y": -1.5258309617414854
+    },
+    {
+      "id": "C",
+      "x": 1.040742813154759,
+      "y": 1.9667447886840437
+    },
+    {
+      "id": "D",
+      "x": -0.2622815815596119,
+      "y": -4.266105227125821
+    },
+    {
+      "id": "E",
+      "x": 0.38923061579058493,
+      "y": -1.1496802191743094
+    },
+    {
+      "id": "F",
+      "x": 0.6962242739057855,
+      "y": -3.7866821472240315
+    },
+    {
+      "id": "G",
+      "x": -5.072636197285287,
+      "y": -1.091029952119758
+    },
+    {
+      "id": "H",
+      "x": 0.14629731903782325,
+      "y": 2.5571236692678165
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785612081609",
+      "type": "circle",
+      "points": [
+        "A",
+        "B"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785612113821",
+      "type": "segment",
+      "points": [
+        "C",
+        "D"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785612262596",
+      "type": "segment",
+      "points": [
+        "A",
+        "B"
+      ],
+      "color": "#26a880"
+    },
+    {
+      "id": "shape-1785612298252",
+      "type": "polygon",
+      "points": [
+        "F",
+        "G",
+        "H"
+      ],
+      "color": "#f0a11b"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785612109719,
+      "expression": "C ∈ circle(AB)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785612110493,
+      "expression": "D ∈ circle(AB)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785612110494,
+      "expression": "AB ⟂ CD",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785612264414,
+      "expression": "E = segment(AB) ∩ segment(CD)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785612264415,
+      "expression": "AE = EB",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785612290861,
+      "expression": "F ∈ circle(AB)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785612291910,
+      "expression": "G ∈ circle(AB)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785612292781,
+      "expression": "H ∈ circle(AB)",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785612298253,
+      "expression": "FG = GH = HF",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785612298254,
+      "expression": "distinct(FGH)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785612298255,
+      "expression": "FG - CD = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": {
+    "x": 95.24159554975154,
+    "y": -131.6116269384804,
+    "scale": 66.95796893466101
+  }
+}

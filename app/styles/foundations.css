@@ -349,6 +349,7 @@ canvas:focus-visible {
 .settings-scroll {
   min-height: 0;
   overflow-y: auto;
+  overflow-anchor: none;
   overscroll-behavior: contain;
   padding: 4px 18px 18px;
 }
@@ -724,7 +725,9 @@ canvas:focus-visible {
 
 .tool-rail {
   position: relative;
-  z-index: 3;
+  /* Flyouts must stay above sticky condition-section headings. A descendant
+     cannot escape its parent's stacking level even with a larger z-index. */
+  z-index: 50;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1127,6 +1130,17 @@ canvas:focus-visible {
   border-bottom: 1px solid #e8eaee;
 }
 
+.conditions-section > .panel-heading {
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  background: var(--paper, #fff);
+}
+
+.conditions-section > .panel-heading:has(.object-shape-add .active) {
+  z-index: 40;
+}
+
 .conditions-section.is-collapsed .panel-heading {
   min-height: 57px;
   padding-top: 9px;
@@ -1374,26 +1388,21 @@ canvas:focus-visible {
   line-height: 1.45;
 }
 
-.editor-group-drop-zone {
-  min-height: 32px;
-  display: grid;
-  place-items: center;
-  margin: 7px;
-  padding: 6px 10px;
-  border: 1px dashed #aeb6dc;
-  border-radius: 8px;
-  background: #f7f8ff;
-  color: #68729e;
-  font-size: 10px;
-  text-align: center;
+.unified-object-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.object-list-entry {
+  min-width: 0;
 }
 
 .editor-group-boundary {
-  min-height: 18px;
-  height: 18px;
+  min-height: 8px;
+  height: 8px;
   display: grid;
   place-items: center;
-  margin: 0;
+  margin: 0 0 0 calc(var(--group-depth, 0) * 8px);
   border: 0;
   background: transparent;
 }
@@ -1414,7 +1423,7 @@ canvas:focus-visible {
   grid-template-columns: 17px 25px minmax(0, 1fr) 24px 28px 28px;
   align-items: center;
   gap: 4px;
-  margin: 9px 7px 6px;
+  margin: 9px 7px 6px calc(7px + var(--group-depth, 0) * 8px);
   padding: 4px 5px;
   border: 1px solid #dfe3f7;
   border-radius: 8px;
@@ -1431,7 +1440,10 @@ canvas:focus-visible {
 
 .expression-list > .editor-group-header {
   margin-right: 0;
-  margin-left: 0;
+  margin-left: calc(
+    var(--group-depth, 0) * 8px +
+      min(10px, var(--group-depth, 0) * 10px)
+  );
 }
 
 .editor-group-header:focus-within {
@@ -1556,11 +1568,11 @@ canvas:focus-visible {
 }
 
 .object-catalog-bucket.is-custom-group {
-  margin-top: 9px;
-  padding: 0 5px 7px;
-  border: 1px solid #e5e8f5;
-  border-radius: 10px;
-  background: #fafbff;
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .object-catalog-bucket.is-custom-group .editor-group-header {
@@ -1575,7 +1587,7 @@ canvas:focus-visible {
 }
 
 .expression-row.is-grouped {
-  margin-left: 10px;
+  margin-left: calc(10px + var(--group-depth, 0) * 8px);
   padding-left: 5px;
   border-left: 2px solid #d8dcfa;
 }
@@ -1641,7 +1653,7 @@ canvas:focus-visible {
 
 .point-object-row {
   grid-template-columns:
-    17px 22px 20px 34px minmax(0, 1fr)
+    17px 22px 20px minmax(48px, 0.8fr) minmax(0, 1fr)
     minmax(0, 1fr) 22px;
 }
 
@@ -1651,6 +1663,12 @@ canvas:focus-visible {
     minmax(55px, 1.1fr) 22px;
 }
 
+.shape-object-row.is-equation {
+  grid-template-columns:
+    17px 22px minmax(46px, 0.55fr) 20px minmax(78px, 0.9fr)
+    minmax(110px, 1.8fr) 22px;
+}
+
 .object-row.is-object-hidden
   > :not(.object-drag-handle):not(.object-visibility):not(.object-delete) {
   opacity: 0.42;
@@ -1658,10 +1676,12 @@ canvas:focus-visible {
 
 .object-row.is-reordering {
   z-index: 4;
+  pointer-events: none;
   border-radius: 7px;
   background: #f4f5ff;
   box-shadow: 0 7px 20px rgb(54 65 149 / 18%);
-  transform: scale(1.012);
+  transition: none;
+  transform: translateY(var(--object-drag-y, 0)) scale(1.012);
 }
 
 .object-row.has-object-error {
@@ -1681,6 +1701,16 @@ canvas:focus-visible {
   background: #fff7f5;
   color: #cf5f55;
   font-size: 9px;
+  line-height: 1.4;
+}
+
+.object-inline-warning {
+  min-height: 24px;
+  padding: 4px 12px 6px 71px;
+  border-bottom: 1px solid #eadfbd;
+  background: #fffbef;
+  color: #8a6811;
+  font-size: 10px;
   line-height: 1.4;
 }
 

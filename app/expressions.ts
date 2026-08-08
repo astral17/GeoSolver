@@ -9,12 +9,15 @@ import type {
   GeometryReference,
   GeometryKind,
   IntersectionObject,
+  MathPointNode,
   MathNode,
   ParsedConstraint,
   Point,
   ProofResult,
   Shape,
   SolveResult,
+  SolverProgress,
+  SetExpression,
   UnknownTarget,
   VariableDefinition,
 } from "./domain";
@@ -46,15 +49,66 @@ export const trimNumber = (value: number, digits = 2) => {
   return digits === 0 ? fixed : fixed.replace(/\.?0+$/, "");
 };
 
+const POINT_ID_SOURCE = String.raw`[A-Z]\d*`;
+const POINT_ID_SEQUENCE_SOURCE = String.raw`(?:${POINT_ID_SOURCE})+`;
+
+function splitPointIds(source: string) {
+  const clean = source.toUpperCase();
+  const ids = clean.match(/[A-Z]\d*/g) ?? [];
+  return ids.length > 0 && ids.join("") === clean ? ids : null;
+}
+
+function parseComputedPointSequence(source: string) {
+  const points: MathPointNode[] = [];
+  let position = 0;
+  while (position < source.length) {
+    while (/\s/.test(source[position] ?? "")) position += 1;
+    if (position >= source.length) break;
+    if (source[position] !== "(") return null;
+    const start = position;
+    let depth = 0;
+    do {
+      const character = source[position];
+      if (character === "(") depth += 1;
+      if (character === ")") depth -= 1;
+      position += 1;
+    } while (position < source.length && depth > 0);
+    if (depth !== 0) return null;
+    const parsed = parseMathExpression(source.slice(start, position));
+    if (parsed?.kind !== "point") return null;
+    points.push(parsed);
+  }
+  return points.length ? points : null;
+}
+
 const DISTANCE_OBJECT_ARGUMENT =
-  String.raw`(?:(?:point|segment|line|ray|circle|ellipse|sector|circularsegment|polygon)\s*\(\s*[A-Za-z]+\s*\)|[A-Za-z]+)`;
+  String.raw`(?:(?:point|segment|line|ray|circle|ellipse|sector|circularsegment|polygon)\s*\(\s*(?:[A-Za-z]\d*)+\s*\)|(?:equation|eq)\s*\(\s*[A-Za-z_][A-Za-z0-9_]*\s*\)|[a-z_][A-Za-z0-9_]*|(?:[A-Z]\d*)+)`;
 const AREA_GEOMETRY_ARGUMENT =
-  String.raw`(?:(?:circle|ellipse|sector|segment|circularsegment|polygon)\s*\(\s*[A-Za-z]+\s*\)|[A-Za-z]{3,})`;
+  String.raw`(?:(?:circle|ellipse|sector|segment|circularsegment|polygon)\s*\(\s*(?:[A-Za-z]\d*)+\s*\)|(?:equation|eq)\s*\(\s*[A-Za-z_][A-Za-z0-9_]*\s*\)|[a-z_][A-Za-z0-9_]*|(?:[A-Za-z]\d*){3,})`;
+
+function encodeEquationName(name: string) {
+  return [...name]
+    .map((character) => character.charCodeAt(0).toString(16).padStart(4, "0"))
+    .join("");
+}
+
+function decodeEquationName(encoded: string) {
+  const characters = encoded.match(/.{4}/g);
+  return characters
+    ? characters.map((value) => String.fromCharCode(Number.parseInt(value, 16))).join("")
+    : "";
+}
 
 function encodeGeometryReference(source: string) {
   const clean = source.replace(/\s+/g, "");
+  const equation = clean.match(
+    /^(?:(?:equation|eq)\(([A-Za-z_][A-Za-z0-9_]*)\)|([a-z_][A-Za-z0-9_]*))$/i,
+  );
+  if (equation && (equation[1] || /^[a-z_]/.test(clean))) {
+    return `EQUATION_${encodeEquationName(equation[1] ?? equation[2])}`;
+  }
   const explicit = clean.match(
-    /^(circle|ellipse|sector|segment|circularsegment|polygon)\(([A-Za-z]+)\)$/i,
+    /^(circle|ellipse|sector|segment|circularsegment|polygon)\(((?:[A-Za-z]\d*)+)\)$/i,
   );
   if (explicit) {
     const kind =
@@ -80,14 +134,21 @@ function replaceIntersectionAreas(source: string) {
 
 function encodeDistanceObject(source: string) {
   const clean = source.replace(/\s+/g, "");
+  const equation = clean.match(
+    /^(?:(?:equation|eq)\(([A-Za-z_][A-Za-z0-9_]*)\)|([a-z_][A-Za-z0-9_]*))$/i,
+  );
+  if (equation && (equation[1] || /^[a-z_]/.test(clean))) {
+    return `EQUATION_${encodeEquationName(equation[1] ?? equation[2])}`;
+  }
   const explicit = clean.match(
-    /^(point|segment|line|ray|circle|ellipse|sector|circularsegment|polygon)\(([A-Za-z]+)\)$/i,
+    /^(point|segment|line|ray|circle|ellipse|sector|circularsegment|polygon)\(((?:[A-Za-z]\d*)+)\)$/i,
   );
   if (explicit) {
     return `${explicit[1].toUpperCase()}_${explicit[2].toUpperCase()}`;
   }
   const ids = clean.toUpperCase();
-  const kind = ids.length === 1 ? "POINT" : ids.length === 2 ? "SEGMENT" : "POLYGON";
+  const idCount = splitPointIds(ids)?.length ?? 0;
+  const kind = idCount === 1 ? "POINT" : idCount === 2 ? "SEGMENT" : "POLYGON";
   return `${kind}_${ids}`;
 }
 
@@ -111,52 +172,66 @@ function prepareMathSource(source: string) {
     .replace(/÷/g, "/")
     .replace(/²/g, "^2")
     .replace(/³/g, "^3")
+    .replace(
+      /\b(?:area|s)\s*\(\s*(?:(?:equation|eq)\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)|([a-z_][A-Za-z0-9_]*))\s*\)/gi,
+      (match, explicit, bare) =>
+        explicit || /^[a-z_]/.test(bare)
+          ? `AREA_EQUATION_${encodeEquationName(explicit ?? bare)}`
+          : match,
+    )
+    .replace(
+      /\b(?:perimeter|perim|p)\s*\(\s*(?:(?:equation|eq)\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)|([a-z_][A-Za-z0-9_]*))\s*\)/gi,
+      (match, explicit, bare) =>
+        explicit || /^[a-z_]/.test(bare)
+          ? `PERIMETER_EQUATION_${encodeEquationName(explicit ?? bare)}`
+          : match,
+    )
     .replace(/\\deg\b/gi, "°")
     .replace(
       /(-?(?:\d+(?:\.\d+)?|\.\d+))\s*°/g,
       (_, value) => `deg(${value})`,
     )
     .replace(/√\s*\(/g, "sqrt(")
-    .replace(/∠\s*([A-Za-z])([A-Za-z])([A-Za-z])/g, (_, a, b, c) =>
+    .replace(/∠\s*([A-Za-z]\d*)([A-Za-z]\d*)([A-Za-z]\d*)/g, (_, a, b, c) =>
       `ANGLE_${a}${b}${c}`.toUpperCase(),
     )
     .replace(
-      /\b([xy])\s*\(\s*([A-Za-z])\s*\)/gi,
+      /\b([xy])\s*\(\s*([A-Za-z]\d*)\s*\)/gi,
       (_, axis, id) => `COORD_${axis}_${id}`.toUpperCase(),
     )
     .replace(
-      /\b([A-Za-z])\s*\.\s*([xy])\b/gi,
+      /\b([A-Za-z]\d*)\s*\.\s*([xy])\b/gi,
       (_, id, axis) => `COORD_${axis}_${id}`.toUpperCase(),
     )
     .replace(
-      /\b(?:angle|угол)\s*\(\s*([A-Za-z])([A-Za-z])([A-Za-z])\s*\)/gi,
+      /\b(?:angle|угол)\s*\(\s*([A-Za-z]\d*)([A-Za-z]\d*)([A-Za-z]\d*)\s*\)/gi,
       (_, a, b, c) => `ANGLE_${a}${b}${c}`.toUpperCase(),
     )
     .replace(
-      /\b(?:area|s)\s*\(\s*(circle|ellipse|sector|segment|circularsegment)\s*\(\s*([A-Za-z]{2,3})\s*\)\s*\)/gi,
+      /\b(?:area|s)\s*\(\s*(circle|ellipse|sector|segment|circularsegment)\s*\(\s*((?:[A-Za-z]\d*){2,3})\s*\)\s*\)/gi,
       (_, geometry, ids) =>
         `AREA_${String(geometry).toUpperCase()}_${String(ids).toUpperCase()}`,
     )
     .replace(
-      /\b(?:perimeter|perim|p)\s*\(\s*(circle|ellipse|sector|segment|circularsegment)\s*\(\s*([A-Za-z]{2,3})\s*\)\s*\)/gi,
+      /\b(?:perimeter|perim|p)\s*\(\s*(circle|ellipse|sector|segment|circularsegment)\s*\(\s*((?:[A-Za-z]\d*){2,3})\s*\)\s*\)/gi,
       (_, geometry, ids) =>
         `PERIMETER_${String(geometry).toUpperCase()}_${String(ids).toUpperCase()}`,
     )
     .replace(
-      /\b(?:area|s)\s*\(\s*((?:[A-Za-z]\s*,?\s*){3,})\)/gi,
+      /\b(?:area|s)\s*\(\s*((?:[A-Za-z]\d*\s*,?\s*){3,})\)/gi,
       (_, ids) =>
-        `AREA_${String(ids).replace(/[^A-Za-z]/g, "")}`.toUpperCase(),
+        `AREA_${String(ids).replace(/[^A-Za-z0-9]/g, "")}`.toUpperCase(),
     )
     .replace(
-      /\b(?:perimeter|perim|p)\s*\(\s*((?:[A-Za-z]\s*,?\s*){3,})\)/gi,
+      /\b(?:perimeter|perim|p)\s*\(\s*((?:[A-Za-z]\d*\s*,?\s*){3,})\)/gi,
       (_, ids) =>
-        `PERIMETER_${String(ids).replace(/[^A-Za-z]/g, "")}`.toUpperCase(),
+        `PERIMETER_${String(ids).replace(/[^A-Za-z0-9]/g, "")}`.toUpperCase(),
     )
     .replace(
-      /\b(?:len|length)\s*\(\s*([A-Za-z])([A-Za-z])\s*\)/gi,
+      /\b(?:len|length)\s*\(\s*([A-Za-z]\d*)([A-Za-z]\d*)\s*\)/gi,
       (_, a, b) => `LEN_${a}${b}`.toUpperCase(),
     )
-    .replace(/\b([A-Z])([A-Z])\b/g, (_, a, b) => `LEN_${a}${b}`)
+    .replace(/\b([A-Z]\d*)([A-Z]\d*)\b/g, (_, a, b) => `LEN_${a}${b}`)
     .replace(/π/g, "PI");
 }
 
@@ -165,7 +240,7 @@ function tokenizeMath(source: string) {
   let rest = source;
   while (rest.trim().length) {
     const match = rest.match(
-      /^\s*(\d+(?:\.\d+)?|\.\d+|[A-Za-z_][A-Za-z0-9_]*|[()+\-*/^])/
+      /^\s*(\d+(?:\.\d+)?|\.\d+|[A-Za-z_][A-Za-z0-9_]*|[(),;+\-*/^])/
     );
     if (!match) return null;
     tokens.push(match[1]);
@@ -175,6 +250,29 @@ function tokenizeMath(source: string) {
 }
 
 export function parseMathExpression(source: string): MathNode | null {
+  const setArea = normalizeSetOperators(source).match(
+    /^\s*(?:area|s)\s*\(\s*(.+)\s*\)\s*$/i,
+  );
+  if (setArea && /[∩∪]/.test(setArea[1])) {
+    const set = parseSetExpression(setArea[1]);
+    if (!set) return null;
+    const objects = setObjects(set);
+    const needsExtendedSetArea =
+      set.kind === "union" ||
+      objects.length !== 2 ||
+      objects.some((object) => object.kind === "equation");
+    if (!needsExtendedSetArea) {
+      // Preserve the exact two-geometry implementation used by existing
+      // projects; the grid evaluator is reserved for genuinely general sets.
+    } else {
+      return {
+        kind: "measure",
+        measure: "setArea",
+        ids: [...new Set(objects.flatMap((object) => object.ids))],
+        set,
+      };
+    }
+  }
   const tokens = tokenizeMath(prepareMathSource(source));
   if (!tokens?.length) return null;
   let position = 0;
@@ -186,34 +284,238 @@ export function parseMathExpression(source: string): MathNode | null {
     if (!token) return null;
     if (token === "(") {
       const value = parseAdditive();
-      if (!value || take() !== ")") return null;
+      if (!value) return null;
+      if (peek() === ";") {
+        take();
+        const y = parseAdditive();
+        if (!y || take() !== ")") return null;
+        return { kind: "point", x: value, y };
+      }
+      if (take() !== ")") return null;
       return value;
     }
     if (/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(token)) {
       return { kind: "number", value: Number(token) };
     }
-    if (/^LEN_[A-Z]{2}$/.test(token)) {
+    const functionName = token.toLowerCase();
+    const parsePointArgument = (): {
+      point: MathPointNode;
+      id?: string;
+    } | null => {
+      const reference = peek();
+      if (reference && /^[A-Z]\d*$/.test(reference)) {
+        take();
+        return {
+          id: reference,
+          point: {
+            kind: "point",
+            x: { kind: "measure", measure: "x", ids: [reference] },
+            y: { kind: "measure", measure: "y", ids: [reference] },
+          },
+        };
+      }
+      const value = parsePrimary();
+      return value?.kind === "point" ? { point: value } : null;
+    };
+    const parseDistanceArgument = (): DistanceObject | null => {
+      if (peek() === "(") {
+        const pointArguments: MathPointNode[] = [];
+        while (peek() === "(") {
+          const value = parsePrimary();
+          if (value?.kind !== "point") return null;
+          pointArguments.push(value);
+        }
+        if (pointArguments.length === 1) {
+          return {
+            kind: "point",
+            ids: [],
+            point: pointArguments[0],
+            pointArguments,
+          };
+        }
+        if (pointArguments.length === 2) {
+          return { kind: "segment", ids: [], pointArguments };
+        }
+        return pointArguments.length >= 3
+          ? { kind: "polygon", ids: [], pointArguments }
+          : null;
+      }
+      const source = peek();
+      if (!source) return null;
+      if (/^LEN_(?:[A-Z]\d*){2}$/.test(source)) {
+        take();
+        return { kind: "segment", ids: splitPointIds(source.slice(4)) ?? [] };
+      }
+      if (/^[A-Z]\d*(?:[A-Z]\d*)*$/.test(source)) {
+        take();
+        const ids = splitPointIds(source) ?? [];
+        return ids.length === 1
+          ? { kind: "point", ids }
+          : ids.length === 2
+            ? { kind: "segment", ids }
+            : ids.length >= 3
+              ? { kind: "polygon", ids }
+              : null;
+      }
+      const explicitKinds = new Map<string, DistanceObject["kind"]>([
+        ["point", "point"],
+        ["segment", "segment"],
+        ["line", "line"],
+        ["ray", "ray"],
+        ["circle", "circle"],
+        ["ellipse", "ellipse"],
+        ["sector", "sector"],
+        ["circularsegment", "circularSegment"],
+        ["polygon", "polygon"],
+      ]);
+      const explicitKind = explicitKinds.get(source.toLowerCase());
+      if (explicitKind) {
+        take();
+        if (take() !== "(") return null;
+        if (peek() === "(") {
+          const pointArguments: MathPointNode[] = [];
+          while (peek() === "(") {
+            const value = parsePrimary();
+            if (value?.kind !== "point") return null;
+            pointArguments.push(value);
+            if (peek() === ",") take();
+          }
+          if (take() !== ")") return null;
+          const valid = explicitKind === "point"
+            ? pointArguments.length === 1
+            : explicitKind === "polygon"
+              ? pointArguments.length >= 3
+              : explicitKind === "ellipse" ||
+                  explicitKind === "sector" ||
+                  explicitKind === "circularSegment"
+                ? pointArguments.length === 3
+                : pointArguments.length === 2;
+          return valid
+            ? { kind: explicitKind, ids: [], pointArguments }
+            : null;
+        }
+        const rawIdsSource = take();
+        const idsSource = rawIdsSource?.startsWith("LEN_")
+          ? rawIdsSource.slice(4)
+          : rawIdsSource;
+        if (!idsSource || take() !== ")") return null;
+        const ids = splitPointIds(idsSource) ?? [];
+        const valid = explicitKind === "point"
+          ? ids.length === 1
+          : explicitKind === "polygon"
+            ? ids.length >= 3
+            : explicitKind === "ellipse" ||
+                explicitKind === "sector" ||
+                explicitKind === "circularSegment"
+              ? ids.length === 3
+              : ids.length === 2;
+        return valid ? { kind: explicitKind, ids } : null;
+      }
+      if (/^(?:eq|equation)$/i.test(source) && tokens[position + 1] === "(") {
+        take();
+        take();
+        const name = take();
+        if (!name || take() !== ")") return null;
+        return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name)
+          ? { kind: "equation", ids: [], name }
+          : null;
+      }
+      if (/^[a-z_][A-Za-z0-9_]*$/.test(source)) {
+        take();
+        return { kind: "equation", ids: [], name: source };
+      }
+      return null;
+    };
+    if ((functionName === "distance" || functionName === "dist") && peek() === "(") {
+      take();
+      const first = parseDistanceArgument();
+      if (!first || take() !== ",") return null;
+      const second = parseDistanceArgument();
+      if (!second || take() !== ")") return null;
+      return {
+        kind: "measure",
+        measure: "objectDistance",
+        ids: [...new Set([...first.ids, ...second.ids])],
+        objects: [first, second],
+      };
+    }
+    if (
+      ["angle", "area", "s", "perimeter", "perim", "p"].includes(functionName) &&
+      peek() === "("
+    ) {
+      take();
+      const arguments_: MathPointNode[] = [];
+      const ids: string[] = [];
+      while (true) {
+        const argument = parsePointArgument();
+        if (!argument) return null;
+        arguments_.push(argument.point);
+        if (argument.id) ids.push(argument.id);
+        if (peek() === ",") {
+          take();
+        } else if (peek() !== "(") {
+          break;
+        }
+      }
+      if (take() !== ")") return null;
+      const measure = functionName === "angle"
+        ? "angle"
+        : functionName === "area" || functionName === "s"
+          ? "area"
+          : "perimeter";
+      if (
+        (measure === "angle" && arguments_.length !== 3) ||
+        (measure !== "angle" && arguments_.length < 3)
+      ) return null;
+      return {
+        kind: "measure",
+        measure,
+        ids,
+        geometry: measure === "angle" ? undefined : "polygon",
+        pointArguments: arguments_,
+      };
+    }
+    if ((functionName === "x" || functionName === "y") && peek() === "(") {
+      take();
+      const argument = parsePointArgument();
+      if (!argument || take() !== ")") return null;
+      return {
+        kind: "measure",
+        measure: functionName,
+        ids: argument.id ? [argument.id] : [],
+        pointArguments: [argument.point],
+      };
+    }
+    const lengthIds = token.startsWith("LEN_")
+      ? splitPointIds(token.slice(4))
+      : null;
+    if (lengthIds?.length === 2) {
       return {
         kind: "measure",
         measure: "distance",
-        ids: token.slice(4).split(""),
+        ids: lengthIds,
       };
     }
     const objectDistance = token.match(
-      /^OBJECTDISTANCE_(POINT|SEGMENT|LINE|RAY|CIRCLE|ELLIPSE|SECTOR|CIRCULARSEGMENT|POLYGON)_([A-Z]+)_(POINT|SEGMENT|LINE|RAY|CIRCLE|ELLIPSE|SECTOR|CIRCULARSEGMENT|POLYGON)_([A-Z]+)$/,
+      /^OBJECTDISTANCE_(POINT|SEGMENT|LINE|RAY|CIRCLE|ELLIPSE|SECTOR|CIRCULARSEGMENT|POLYGON|EQUATION)_([A-Za-z0-9]+)_(POINT|SEGMENT|LINE|RAY|CIRCLE|ELLIPSE|SECTOR|CIRCULARSEGMENT|POLYGON|EQUATION)_([A-Za-z0-9]+)$/,
     );
     if (objectDistance) {
-      const toObject = (kind: string, ids: string): DistanceObject => ({
-        kind:
-          kind === "CIRCULARSEGMENT"
-            ? "circularSegment"
-            : (kind.toLowerCase() as DistanceObject["kind"]),
-        ids: ids.split(""),
-      });
+      const toObject = (kind: string, ids: string): DistanceObject =>
+        kind === "EQUATION"
+          ? { kind: "equation", ids: [], name: decodeEquationName(ids) }
+          : {
+              kind:
+                kind === "CIRCULARSEGMENT"
+                  ? "circularSegment"
+                  : (kind.toLowerCase() as DistanceObject["kind"]),
+              ids: splitPointIds(ids) ?? [],
+            };
       const first = toObject(objectDistance[1], objectDistance[2]);
       const second = toObject(objectDistance[3], objectDistance[4]);
       const validObject = (object: DistanceObject) =>
-        object.kind === "point"
+        object.kind === "equation"
+          ? Boolean(object.name)
+          : object.kind === "point"
           ? object.ids.length === 1
           : object.kind === "polygon"
             ? object.ids.length >= 3
@@ -231,20 +533,25 @@ export function parseMathExpression(source: string): MathNode | null {
       };
     }
     const intersectionArea = token.match(
-      /^INTERSECTIONAREA_(POLYGON|CIRCLE|ELLIPSE|SECTOR|CIRCULARSEGMENT)_([A-Z]+)_(POLYGON|CIRCLE|ELLIPSE|SECTOR|CIRCULARSEGMENT)_([A-Z]+)$/,
+      /^INTERSECTIONAREA_(POLYGON|CIRCLE|ELLIPSE|SECTOR|CIRCULARSEGMENT|EQUATION)_([A-Za-z0-9]+)_(POLYGON|CIRCLE|ELLIPSE|SECTOR|CIRCULARSEGMENT|EQUATION)_([A-Za-z0-9]+)$/,
     );
     if (intersectionArea) {
-      const toGeometry = (kind: string, ids: string): GeometryReference => ({
-        kind:
-          kind === "CIRCULARSEGMENT"
-            ? "circularSegment"
-            : (kind.toLowerCase() as GeometryKind),
-        ids: ids.split(""),
-      });
+      const toGeometry = (kind: string, ids: string): GeometryReference =>
+        kind === "EQUATION"
+          ? { kind: "equation", ids: [], name: decodeEquationName(ids) }
+          : {
+              kind:
+                kind === "CIRCULARSEGMENT"
+                  ? "circularSegment"
+                  : (kind.toLowerCase() as GeometryKind),
+              ids: splitPointIds(ids) ?? [],
+            };
       const first = toGeometry(intersectionArea[1], intersectionArea[2]);
       const second = toGeometry(intersectionArea[3], intersectionArea[4]);
       const validGeometry = (geometry: GeometryReference) =>
-        geometry.kind === "polygon"
+        geometry.kind === "equation"
+          ? Boolean(geometry.name)
+          : geometry.kind === "polygon"
           ? geometry.ids.length >= 3
           : geometry.kind === "circle"
             ? geometry.ids.length === 2
@@ -257,23 +564,41 @@ export function parseMathExpression(source: string): MathNode | null {
         geometries: [first, second],
       };
     }
-    if (/^ANGLE_[A-Z]{3}$/.test(token)) {
+    const angleIds = token.startsWith("ANGLE_")
+      ? splitPointIds(token.slice(6))
+      : null;
+    if (angleIds?.length === 3) {
       return {
         kind: "measure",
         measure: "angle",
-        ids: token.slice(6).split(""),
+        ids: angleIds,
       };
     }
-    if (/^AREA_[A-Z]{3,}$/.test(token)) {
+    const polygonAreaIds = token.startsWith("AREA_")
+      ? splitPointIds(token.slice(5))
+      : null;
+    if (polygonAreaIds && polygonAreaIds.length >= 3) {
       return {
         kind: "measure",
         measure: "area",
-        ids: token.slice(5).split(""),
+        ids: polygonAreaIds,
         geometry: "polygon",
       };
     }
+    const equationMetric = token.match(
+      /^(AREA|PERIMETER)_EQUATION_([A-Fa-f0-9]+)$/,
+    );
+    if (equationMetric) {
+      return {
+        kind: "measure",
+        measure: equationMetric[1] === "AREA" ? "area" : "perimeter",
+        ids: [],
+        geometry: "equation",
+        shapeName: decodeEquationName(equationMetric[2]),
+      };
+    }
     const circularMeasure = token.match(
-      /^(AREA|PERIMETER)_(CIRCLE|ELLIPSE|SECTOR|SEGMENT|CIRCULARSEGMENT)_([A-Z]{2,3})$/,
+      /^(AREA|PERIMETER)_(CIRCLE|ELLIPSE|SECTOR|SEGMENT|CIRCULARSEGMENT)_([A-Z0-9]+)$/,
     );
     if (circularMeasure) {
       const geometry =
@@ -285,29 +610,32 @@ export function parseMathExpression(source: string): MathNode | null {
         kind: "measure",
         measure:
           circularMeasure[1] === "AREA" ? "area" : "perimeter",
-        ids: circularMeasure[3].split(""),
+        ids: splitPointIds(circularMeasure[3]) ?? [],
         geometry: geometry as GeometryKind,
       };
     }
-    if (/^PERIMETER_[A-Z]{3,}$/.test(token)) {
+    const polygonPerimeterIds = token.startsWith("PERIMETER_")
+      ? splitPointIds(token.slice(10))
+      : null;
+    if (polygonPerimeterIds && polygonPerimeterIds.length >= 3) {
       return {
         kind: "measure",
         measure: "perimeter",
-        ids: token.slice(10).split(""),
+        ids: polygonPerimeterIds,
         geometry: "polygon",
       };
     }
-    if (/^COORD_[XY]_[A-Z]$/.test(token)) {
+    const coordinate = token.match(/^COORD_([XY])_([A-Z]\d*)$/);
+    if (coordinate) {
       return {
         kind: "measure",
-        measure: token[6].toLowerCase() as "x" | "y",
-        ids: [token[8]],
+        measure: coordinate[1].toLowerCase() as "x" | "y",
+        ids: [coordinate[2]],
       };
     }
     if (token.toUpperCase() === "PI") {
       return { kind: "number", value: Math.PI };
     }
-    const functionName = token.toLowerCase();
     if (
       ["sqrt", "abs", "sin", "cos", "tan", "deg", "rad"].includes(
         functionName,
@@ -384,9 +712,139 @@ export function parseMathExpression(source: string): MathNode | null {
   return result && position === tokens.length ? result : null;
 }
 
+export type CompiledImplicitEquation = {
+  left: MathNode;
+  right: MathNode;
+  operator: "=" | "<" | ">" | "<=" | ">=";
+  source: string;
+};
+
+/** Parse an equation whose x and y identifiers are local plane coordinates. */
+export function compileImplicitEquation(
+  source: string,
+): CompiledImplicitEquation | null {
+  const normalized = source.replace(/≤/g, "<=").replace(/≥/g, ">=");
+  const match = normalized.match(/^\s*(.+?)\s*(<=|>=|=|<|>)\s*(.+?)\s*$/);
+  if (!match) return null;
+  const left = parseMathExpression(match[1]);
+  const right = parseMathExpression(match[3]);
+  if (!left || !right) return null;
+  return {
+    left,
+    right,
+    operator: match[2] as CompiledImplicitEquation["operator"],
+    source: source.trim(),
+  };
+}
+
+export type ImplicitEquationValue = {
+  valid: boolean;
+  difference: number;
+  scale: number;
+  inside: boolean;
+  boundaryError: number;
+  membershipError: number;
+};
+
+export function evaluateImplicitEquation(
+  equation: CompiledImplicitEquation,
+  point: Pick<Point, "x" | "y">,
+  map: Map<string, Point>,
+  variables: Map<string, MathNode> = new Map(),
+  angleUnit: AngleUnit = "degrees",
+  shapes: Shape[] = [],
+): ImplicitEquationValue {
+  // Local plane coordinates intentionally shadow equally named variables from
+  // the condition list. The object editor exposes this fact as a warning.
+  const localVariables = new Map(variables);
+  localVariables.set("x", { kind: "number", value: point.x });
+  localVariables.set("y", { kind: "number", value: point.y });
+  const left = evaluateMath(
+    equation.left,
+    map,
+    localVariables,
+    angleUnit,
+    shapes,
+  );
+  const right = evaluateMath(
+    equation.right,
+    map,
+    localVariables,
+    angleUnit,
+    shapes,
+  );
+  if (!Number.isFinite(left) || !Number.isFinite(right)) {
+    return {
+      valid: false,
+      difference: Number.NaN,
+      scale: 1,
+      inside: false,
+      boundaryError: 10,
+      membershipError: 10,
+    };
+  }
+  const difference = left - right;
+  // A max(|lhs|, |rhs|) normalization becomes exactly constant for equations
+  // such as y = 0 while |y| > 1, leaving a finite-difference solver with no
+  // gradient. Square-root scaling remains numerically bounded without erasing
+  // the direction toward the zero level set.
+  const scale = Math.max(1, Math.sqrt(Math.abs(left) + Math.abs(right)));
+  const normalized = Math.abs(difference) / scale;
+  const margin = 1e-5;
+  const inside =
+    equation.operator === "="
+      ? normalized <= margin
+      : equation.operator === "<="
+        ? difference <= 0
+        : equation.operator === ">="
+          ? difference >= 0
+          : equation.operator === "<"
+            ? difference < 0
+            : difference > 0;
+  const membershipError =
+    equation.operator === "="
+      ? normalized
+      : equation.operator === "<="
+        ? Math.max(0, difference / scale)
+        : equation.operator === ">="
+          ? Math.max(0, -difference / scale)
+          : equation.operator === "<"
+            ? Math.max(0, difference / scale + margin)
+            : Math.max(0, -difference / scale + margin);
+  return {
+    valid: true,
+    difference,
+    scale,
+    inside,
+    boundaryError: normalized,
+    membershipError,
+  };
+}
+
+function equationShapeByName(name: string | undefined, shapes: Shape[]) {
+  if (!name) return undefined;
+  const equations = shapes.filter(
+    (shape) =>
+      shape.type === "equation" &&
+      shape.name?.toLowerCase() === name.toLowerCase(),
+  );
+  return (
+    equations.find((shape) => shape.name === name) ??
+    (equations.length === 1 ? equations[0] : undefined)
+  );
+}
+
 function collectMathIds(node: MathNode, ids = new Set<string>()) {
-  if (node.kind === "measure") {
+  if (node.kind === "point") {
+    collectMathIds(node.x, ids);
+    collectMathIds(node.y, ids);
+  } else if (node.kind === "measure") {
     node.ids.forEach((id) => ids.add(id));
+    node.pointArguments?.forEach((point) => collectMathIds(point, ids));
+    node.objects?.forEach((object) => {
+      if (object.point) collectMathIds(object.point, ids);
+      object.pointArguments?.forEach((point) => collectMathIds(point, ids));
+    });
   } else if (node.kind === "unary" || node.kind === "function") {
     collectMathIds(node.value, ids);
   } else if (node.kind === "binary") {
@@ -506,7 +964,7 @@ function parsePointCoordinateConstraint(
   source: string,
 ): ParsedConstraint | null {
   const match = source.match(
-    /^\s*([A-Za-z])\s*=\s*\(\s*(.*?)\s*\)\s*$/,
+    /^\s*([A-Za-z]\d*)\s*=\s*\(\s*(.*?)\s*\)\s*$/,
   );
   if (!match) return null;
   const pair = splitCoordinatePair(match[2]);
@@ -537,6 +995,395 @@ function parsePointCoordinateConstraint(
     formulas: equations,
     source: source.trim(),
   };
+}
+
+function equationSamplingBounds(map: Map<string, Point>) {
+  const points = [...map.values()];
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const minimumX = xs.length ? Math.min(...xs) : 0;
+  const maximumX = xs.length ? Math.max(...xs) : 0;
+  const minimumY = ys.length ? Math.min(...ys) : 0;
+  const maximumY = ys.length ? Math.max(...ys) : 0;
+  const span = Math.max(maximumX - minimumX, maximumY - minimumY, 6);
+  const padding = span * 0.75;
+  return {
+    minimumX: minimumX - padding,
+    maximumX: maximumX + padding,
+    minimumY: minimumY - padding,
+    maximumY: maximumY + padding,
+  };
+}
+
+function sampleEquationBoundary(
+  shape: Shape,
+  map: Map<string, Point>,
+  variables: Map<string, MathNode>,
+  angleUnit: AngleUnit,
+  shapes: Shape[],
+  resolution = 72,
+) {
+  const equation = compileImplicitEquation(shape.equation ?? "");
+  if (!equation) return [];
+  const bounds = equationSamplingBounds(map);
+  const stepX = (bounds.maximumX - bounds.minimumX) / resolution;
+  const stepY = (bounds.maximumY - bounds.minimumY) / resolution;
+  const values = Array.from({ length: resolution + 1 }, (_, row) =>
+    Array.from({ length: resolution + 1 }, (_, column) => {
+      const point = {
+        x: bounds.minimumX + column * stepX,
+        y: bounds.minimumY + row * stepY,
+      };
+      return {
+        ...point,
+        value: evaluateImplicitEquation(
+          equation,
+          point,
+          map,
+          variables,
+          angleUnit,
+          shapes,
+        ).difference,
+      };
+    }),
+  );
+  const boundary: Point[] = [];
+  const cross = (
+    first: { x: number; y: number; value: number },
+    second: { x: number; y: number; value: number },
+  ) => {
+    if (
+      !Number.isFinite(first.value) ||
+      !Number.isFinite(second.value) ||
+      ((first.value < 0) === (second.value < 0) &&
+        first.value !== 0 &&
+        second.value !== 0)
+    ) {
+      return;
+    }
+    const denominator = first.value - second.value;
+    const ratio =
+      Math.abs(denominator) < 1e-12
+        ? 0.5
+        : Math.max(0, Math.min(1, first.value / denominator));
+    boundary.push({
+      id: "",
+      x: first.x + (second.x - first.x) * ratio,
+      y: first.y + (second.y - first.y) * ratio,
+    });
+  };
+  for (let row = 0; row <= resolution; row += 1) {
+    for (let column = 0; column <= resolution; column += 1) {
+      if (column < resolution) cross(values[row][column], values[row][column + 1]);
+      if (row < resolution) cross(values[row][column], values[row + 1][column]);
+    }
+  }
+  return boundary;
+}
+
+function approximateEquationMetric(
+  shape: Shape,
+  measure: "area" | "perimeter",
+  map: Map<string, Point>,
+  variables: Map<string, MathNode>,
+  angleUnit: AngleUnit,
+  shapes: Shape[],
+) {
+  const equation = compileImplicitEquation(shape.equation ?? "");
+  if (!equation || equation.operator === "=") return Number.NaN;
+  // Prefer an exact metric when an explicit filled object already describes
+  // the same boundary. This is both faster and substantially more accurate
+  // than comparing an analytic ellipse/circle area with raster cell counts.
+  // The check is geometric, so it also works for user-defined equations that
+  // are algebraically very different from the corresponding standard form.
+  const exactGeometryTypes = new Set<Shape["type"]>([
+    "circle",
+    "ellipse",
+    "sector",
+    "circularSegment",
+    "polygon",
+  ]);
+  for (const candidate of shapes) {
+    if (
+      candidate.id === shape.id ||
+      !exactGeometryTypes.has(candidate.type)
+    ) continue;
+    const candidatePoints = candidate.points.map((id) => map.get(id));
+    if (
+      candidatePoints.length < 2 ||
+      candidatePoints.some((point) => !point)
+    ) continue;
+    const geometry = candidate.type as Exclude<
+      GeometryKind,
+      "equation"
+    >;
+    const boundary = sampleGeometryBoundary(
+      geometry,
+      candidatePoints as Point[],
+      candidate.arc,
+      96,
+    );
+    if (boundary.length < 8) continue;
+    const boundaryMatches = boundary.every(
+      (point) =>
+        evaluateImplicitEquation(
+          equation,
+          point,
+          map,
+          variables,
+          angleUnit,
+          shapes,
+        ).boundaryError <= 1e-5,
+    );
+    if (!boundaryMatches) continue;
+    const interior = boundary.reduce(
+      (center, point) => ({
+        x: center.x + point.x / boundary.length,
+        y: center.y + point.y / boundary.length,
+      }),
+      { x: 0, y: 0 },
+    );
+    if (
+      !evaluateImplicitEquation(
+        equation,
+        interior,
+        map,
+        variables,
+        angleUnit,
+        shapes,
+      ).inside
+    ) continue;
+    const exactMetric = geometryMetric(
+      measure,
+      geometry,
+      candidatePoints as Point[],
+      candidate.arc,
+    );
+    if (Number.isFinite(exactMetric)) return exactMetric;
+  }
+  const bounds = equationSamplingBounds(map);
+  const resolution = 100;
+  const stepX = (bounds.maximumX - bounds.minimumX) / resolution;
+  const stepY = (bounds.maximumY - bounds.minimumY) / resolution;
+  const inside = Array.from({ length: resolution }, (_, row) =>
+    Array.from({ length: resolution }, (_, column) =>
+      evaluateImplicitEquation(
+        equation,
+        {
+          x: bounds.minimumX + (column + 0.5) * stepX,
+          y: bounds.minimumY + (row + 0.5) * stepY,
+        },
+        map,
+        variables,
+        angleUnit,
+        shapes,
+      ).inside,
+    ),
+  );
+  if (measure === "area") {
+    const cells = inside.reduce(
+      (sum, row) => sum + row.filter(Boolean).length,
+      0,
+    );
+    return cells * stepX * stepY;
+  }
+  let perimeter = 0;
+  inside.forEach((row, rowIndex) =>
+    row.forEach((value, columnIndex) => {
+      if (!value) return;
+      if (!inside[rowIndex - 1]?.[columnIndex]) perimeter += stepX;
+      if (!inside[rowIndex + 1]?.[columnIndex]) perimeter += stepX;
+      if (!row[columnIndex - 1]) perimeter += stepY;
+      if (!row[columnIndex + 1]) perimeter += stepY;
+    }),
+  );
+  return perimeter;
+}
+
+function geometryReferenceContains(
+  reference: GeometryReference,
+  point: Point,
+  map: Map<string, Point>,
+  variables: Map<string, MathNode>,
+  angleUnit: AngleUnit,
+  shapes: Shape[],
+) {
+  if (reference.kind === "equation") {
+    const shape = equationShapeByName(reference.name, shapes);
+    const equation = compileImplicitEquation(shape?.equation ?? "");
+    return Boolean(
+      shape &&
+        equation &&
+        equation.operator !== "=" &&
+        evaluateImplicitEquation(
+          equation,
+          point,
+          map,
+          variables,
+          angleUnit,
+          shapes,
+        ).inside,
+    );
+  }
+  const points = resolveReferencePoints(
+    reference,
+    map,
+    variables,
+    angleUnit,
+    shapes,
+  );
+  if (!points) return false;
+  const shape = matchingGeometryShape(reference.kind, reference.ids, shapes);
+  const boundary =
+    reference.kind === "polygon"
+      ? points
+      : sampleGeometryBoundary(
+          reference.kind,
+          points,
+          shape?.arc,
+          72,
+        );
+  return boundary.length >= 3 && pointInPolygon(point, boundary);
+}
+
+function approximateIntersectionArea(
+  first: GeometryReference,
+  second: GeometryReference,
+  map: Map<string, Point>,
+  variables: Map<string, MathNode>,
+  angleUnit: AngleUnit,
+  shapes: Shape[],
+) {
+  const bounds = equationSamplingBounds(map);
+  const resolution = 110;
+  const stepX = (bounds.maximumX - bounds.minimumX) / resolution;
+  const stepY = (bounds.maximumY - bounds.minimumY) / resolution;
+  let cells = 0;
+  for (let row = 0; row < resolution; row += 1) {
+    for (let column = 0; column < resolution; column += 1) {
+      const point = {
+        id: "",
+        x: bounds.minimumX + (column + 0.5) * stepX,
+        y: bounds.minimumY + (row + 0.5) * stepY,
+      };
+      if (
+        geometryReferenceContains(first, point, map, variables, angleUnit, shapes) &&
+        geometryReferenceContains(second, point, map, variables, angleUnit, shapes)
+      ) {
+        cells += 1;
+      }
+    }
+  }
+  return cells * stepX * stepY;
+}
+
+function setExpressionContainsPoint(
+  expression: SetExpression,
+  point: Point,
+  map: Map<string, Point>,
+  variables: Map<string, MathNode>,
+  angleUnit: AngleUnit,
+  shapes: Shape[],
+): boolean {
+  if (expression.kind !== "object") {
+    const values = expression.operands.map((operand) =>
+      setExpressionContainsPoint(
+        operand,
+        point,
+        map,
+        variables,
+        angleUnit,
+        shapes,
+      ),
+    );
+    return expression.kind === "union"
+      ? values.some(Boolean)
+      : values.every(Boolean);
+  }
+  const object = expression.object;
+  if (object.kind === "equation") {
+    const shape = equationShapeByName(object.name, shapes);
+    const equation = compileImplicitEquation(shape?.equation ?? "");
+    return Boolean(
+      shape &&
+        equation &&
+        equation.operator !== "=" &&
+        evaluateImplicitEquation(
+          equation,
+          point,
+          map,
+          variables,
+          angleUnit,
+          shapes,
+        ).inside,
+    );
+  }
+  const kind =
+    object.kind === "auto"
+      ? resolveIntersectionObjectKind(object.ids, shapes)
+      : object.kind;
+  if (
+    kind === "point" ||
+    kind === "segment" ||
+    kind === "line" ||
+    kind === "ray"
+  ) return false;
+  const objectPoints = resolveReferencePoints(
+    object,
+    map,
+    variables,
+    angleUnit,
+    shapes,
+  );
+  if (!objectPoints) return false;
+  const geometry = kind as Exclude<GeometryKind, "equation">;
+  const shape = matchingGeometryShape(geometry, object.ids, shapes);
+  const boundary =
+    geometry === "polygon"
+      ? objectPoints
+      : sampleGeometryBoundary(
+          geometry,
+          objectPoints,
+          shape?.arc,
+          72,
+        );
+  return boundary.length >= 3 && pointInPolygon(point, boundary);
+}
+
+function approximateSetArea(
+  set: SetExpression,
+  map: Map<string, Point>,
+  variables: Map<string, MathNode>,
+  angleUnit: AngleUnit,
+  shapes: Shape[],
+) {
+  const bounds = equationSamplingBounds(map);
+  const resolution = 110;
+  const stepX = (bounds.maximumX - bounds.minimumX) / resolution;
+  const stepY = (bounds.maximumY - bounds.minimumY) / resolution;
+  let cells = 0;
+  for (let row = 0; row < resolution; row += 1) {
+    for (let column = 0; column < resolution; column += 1) {
+      const point = {
+        id: "",
+        x: bounds.minimumX + (column + 0.5) * stepX,
+        y: bounds.minimumY + (row + 0.5) * stepY,
+      };
+      if (
+        setExpressionContainsPoint(
+          set,
+          point,
+          map,
+          variables,
+          angleUnit,
+          shapes,
+        )
+      ) {
+        cells += 1;
+      }
+    }
+  }
+  return cells * stepX * stepY;
 }
 
 function distanceObjectPoints(
@@ -663,7 +1510,61 @@ function distanceBetweenObjects(
   second: DistanceObject,
   map: Map<string, Point>,
   shapes: Shape[],
+  variables: Map<string, MathNode> = new Map(),
+  angleUnit: AngleUnit = "degrees",
 ) {
+  if (first.kind === "equation" || second.kind === "equation") {
+    const equationObject = first.kind === "equation" ? first : second;
+    const other = first.kind === "equation" ? second : first;
+    const equationShape = equationShapeByName(equationObject.name, shapes);
+    if (!equationShape) return Number.NaN;
+    const equationBoundary = sampleEquationBoundary(
+      equationShape,
+      map,
+      variables,
+      angleUnit,
+      shapes,
+    );
+    if (!equationBoundary.length) return Number.NaN;
+    const otherPoints = distanceObjectPoints(other, map);
+    if (!otherPoints) return Number.NaN;
+    if (other.kind === "point") {
+      const equation = compileImplicitEquation(equationShape.equation ?? "");
+      if (
+        equation &&
+        equation.operator !== "=" &&
+        evaluateImplicitEquation(
+          equation,
+          otherPoints[0],
+          map,
+          variables,
+          angleUnit,
+          shapes,
+        ).inside
+      ) {
+        return 0;
+      }
+      return Math.min(
+        ...equationBoundary.map((point) => distance(point, otherPoints[0])),
+      );
+    }
+    const otherBoundary =
+      other.kind === "equation"
+        ? sampleEquationBoundary(
+            equationShapeByName(other.name, shapes) ?? equationShape,
+            map,
+            variables,
+            angleUnit,
+            shapes,
+          )
+        : distanceObjectBoundary(other, map, shapes);
+    if (!otherBoundary.length) return Number.NaN;
+    return Math.min(
+      ...equationBoundary.flatMap((firstPoint) =>
+        otherBoundary.map((secondPoint) => distance(firstPoint, secondPoint)),
+      ),
+    );
+  }
   const firstPoints = distanceObjectPoints(first, map);
   const secondPoints = distanceObjectPoints(second, map);
   if (!firstPoints || !secondPoints) return Number.NaN;
@@ -768,6 +1669,7 @@ function evaluateMath(
   resolving: Set<string> = new Set(),
 ): number {
   if (node.kind === "number") return node.value;
+  if (node.kind === "point") return Number.NaN;
   if (node.kind === "variable") {
     if (resolving.has(node.name)) return Number.NaN;
     const value = variables.get(node.name);
@@ -784,6 +1686,81 @@ function evaluateMath(
     );
   }
   if (node.kind === "measure") {
+    if (node.measure === "setArea" && node.set) {
+      return approximateSetArea(
+        node.set,
+        map,
+        variables,
+        angleUnit,
+        shapes,
+      );
+    }
+    if (
+      (node.measure === "area" || node.measure === "perimeter") &&
+      node.geometry === "equation" &&
+      node.shapeName
+    ) {
+      const shape = equationShapeByName(node.shapeName, shapes);
+      return shape
+        ? approximateEquationMetric(
+            shape,
+            node.measure,
+            map,
+            variables,
+            angleUnit,
+            shapes,
+          )
+        : Number.NaN;
+    }
+    const computedPoints = node.pointArguments?.map((point, index) => {
+      const x = evaluateMath(
+        point.x,
+        map,
+        variables,
+        angleUnit,
+        shapes,
+        resolving,
+      );
+      const y = evaluateMath(
+        point.y,
+        map,
+        variables,
+        angleUnit,
+        shapes,
+        resolving,
+      );
+      return { id: `__point_${index}`, x, y };
+    });
+    if (
+      computedPoints?.some(
+        (point) => !Number.isFinite(point.x) || !Number.isFinite(point.y),
+      )
+    ) return Number.NaN;
+    if (computedPoints?.length) {
+      if (node.measure === "x") return computedPoints[0].x;
+      if (node.measure === "y") return computedPoints[0].y;
+      if (node.measure === "distance" && computedPoints.length === 2) {
+        return distance(computedPoints[0], computedPoints[1]);
+      }
+      if (node.measure === "angle" && computedPoints.length === 3) {
+        const value = angleDegrees(
+          computedPoints[0],
+          computedPoints[1],
+          computedPoints[2],
+        );
+        return angleUnit === "degrees" ? value : (value * Math.PI) / 180;
+      }
+      if (
+        (node.measure === "area" || node.measure === "perimeter") &&
+        computedPoints.length >= 3
+      ) {
+        return geometryMetric(
+          node.measure,
+          "polygon",
+          computedPoints,
+        );
+      }
+    }
     const points = node.ids.map((id) => map.get(id));
     if (points.some((point) => !point)) return Number.NaN;
     const p = points as Point[];
@@ -791,15 +1768,69 @@ function evaluateMath(
     if (node.measure === "y") return p[0].y;
     if (node.measure === "distance") return distance(p[0], p[1]);
     if (node.measure === "objectDistance" && node.objects) {
+      const resolvedMap = new Map(map);
+      const resolveObject = (
+        object: DistanceObject,
+        index: number,
+      ): DistanceObject | null => {
+        const expressions = object.pointArguments ??
+          (object.point ? [object.point] : []);
+        if (!expressions.length) return object;
+        const ids = expressions.map((point, pointIndex) => {
+          const x = evaluateMath(
+            point.x,
+            map,
+            variables,
+            angleUnit,
+            shapes,
+            resolving,
+          );
+          const y = evaluateMath(
+            point.y,
+            map,
+            variables,
+            angleUnit,
+            shapes,
+            resolving,
+          );
+          if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+          const id = `__computed_object_${index}_${pointIndex}`;
+          resolvedMap.set(id, { id, x, y });
+          return id;
+        });
+        return ids.some((id) => !id)
+          ? null
+          : {
+              ...object,
+              ids: ids as string[],
+              point: undefined,
+              pointArguments: undefined,
+            };
+      };
+      const first = resolveObject(node.objects[0], 0);
+      const second = resolveObject(node.objects[1], 1);
+      if (!first || !second) return Number.NaN;
       return distanceBetweenObjects(
-        node.objects[0],
-        node.objects[1],
-        map,
+        first,
+        second,
+        resolvedMap,
         shapes,
+        variables,
+        angleUnit,
       );
     }
     if (node.measure === "intersectionArea" && node.geometries) {
       const [first, second] = node.geometries;
+      if (first.kind === "equation" || second.kind === "equation") {
+        return approximateIntersectionArea(
+          first,
+          second,
+          map,
+          variables,
+          angleUnit,
+          shapes,
+        );
+      }
       const firstPoints = first.ids.map((id) => map.get(id));
       const secondPoints = second.ids.map((id) => map.get(id));
       if (
@@ -900,23 +1931,46 @@ function evaluateMath(
 }
 
 function parseIntersectionObject(source: string): IntersectionObject | null {
-  const clean = source.toUpperCase().replace(/\s+/g, "");
-  const shorthand = clean.match(/^([A-Z])([A-Z])$/);
-  if (shorthand) {
+  const compact = source.replace(/\s+/g, "");
+  const computedPoints = parseComputedPointSequence(compact);
+  if (computedPoints) {
     return {
-      kind: "auto",
-      ids: [shorthand[1], shorthand[2]],
+      kind:
+        computedPoints.length === 1
+          ? "point"
+          : computedPoints.length === 2
+            ? "segment"
+            : "polygon",
+      ids: [],
+      pointArguments: computedPoints,
     };
   }
+  const equation = compact.match(
+    /^(?:equation|eq)\(([A-Za-z_][A-Za-z0-9_]*)\)$/i,
+  );
+  if (equation) return { kind: "equation", ids: [], name: equation[1] };
+  // Lower-case identifiers are equation-object names. Upper-case letter and
+  // digit sequences remain point-based geometry for backwards compatibility.
+  if (/^[a-z_][A-Za-z0-9_]*$/.test(compact)) {
+    return { kind: "equation", ids: [], name: compact };
+  }
+  const clean = compact.toUpperCase();
+  const shorthandIds = splitPointIds(clean);
+  if (shorthandIds?.length === 2) {
+    return { kind: "auto", ids: shorthandIds };
+  }
+  if (shorthandIds && shorthandIds.length >= 3) {
+    return { kind: "polygon", ids: shorthandIds };
+  }
   const explicit = clean.match(
-    /^(SEGMENT|LINE|RAY|CIRCLE|ELLIPSE|SECTOR|CIRCULARSEGMENT|POLYGON)\(([A-Z]+)\)$/,
+    /^(SEGMENT|LINE|RAY|CIRCLE|ELLIPSE|SECTOR|CIRCULARSEGMENT|POLYGON)\(([A-Z0-9]+)\)$/,
   );
   if (!explicit) return null;
   const kind =
     explicit[1] === "CIRCULARSEGMENT"
       ? "circularSegment"
       : (explicit[1].toLowerCase() as IntersectionObject["kind"]);
-  const ids = explicit[2].split("");
+  const ids = splitPointIds(explicit[2]) ?? [];
   const validCount =
     kind === "polygon"
       ? ids.length >= 3
@@ -932,6 +1986,68 @@ function parseIntersectionObject(source: string): IntersectionObject | null {
   };
 }
 
+function normalizeSetOperators(source: string) {
+  return source
+    .replace(/\\cap\b/gi, "∩")
+    .replace(/\\cup\b/gi, "∪");
+}
+
+function splitTopLevelSetOperator(source: string, operator: "∩" | "∪") {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === "(" || character === "{") depth += 1;
+    if (character === ")" || character === "}") depth -= 1;
+    if (depth === 0 && character === operator) {
+      parts.push(source.slice(start, index));
+      start = index + 1;
+    }
+  }
+  if (!parts.length) return null;
+  parts.push(source.slice(start));
+  return parts.every((part) => part.trim()) ? parts : null;
+}
+
+function unwrapSetParentheses(source: string) {
+  const trimmed = source.trim();
+  if (!trimmed.startsWith("(") || !trimmed.endsWith(")")) return trimmed;
+  let depth = 0;
+  for (let index = 0; index < trimmed.length; index += 1) {
+    if (trimmed[index] === "(") depth += 1;
+    if (trimmed[index] === ")") depth -= 1;
+    if (depth === 0 && index < trimmed.length - 1) return trimmed;
+  }
+  return depth === 0 ? trimmed.slice(1, -1).trim() : trimmed;
+}
+
+function parseSetExpression(source: string): SetExpression | null {
+  const clean = unwrapSetParentheses(normalizeSetOperators(source));
+  const union = splitTopLevelSetOperator(clean, "∪");
+  if (union) {
+    const operands = union.map(parseSetExpression);
+    return operands.every(Boolean)
+      ? { kind: "union", operands: operands as SetExpression[] }
+      : null;
+  }
+  const intersection = splitTopLevelSetOperator(clean, "∩");
+  if (intersection) {
+    const operands = intersection.map(parseSetExpression);
+    return operands.every(Boolean)
+      ? { kind: "intersection", operands: operands as SetExpression[] }
+      : null;
+  }
+  const object = parseIntersectionObject(clean);
+  return object ? { kind: "object", object } : null;
+}
+
+function setObjects(expression: SetExpression): IntersectionObject[] {
+  return expression.kind === "object"
+    ? [expression.object]
+    : expression.operands.flatMap(setObjects);
+}
+
 function parseIntersectionPointSet(source: string) {
   const clean = source.toUpperCase().replace(/\s+/g, "");
   if (clean === "∅") return [];
@@ -940,7 +2056,7 @@ function parseIntersectionPointSet(source: string) {
   const points = pointSource.split(",");
   if (
     !points.length ||
-    points.some((point) => !/^[A-Z]$/.test(point)) ||
+    points.some((point) => !/^[A-Z]\d*$/.test(point)) ||
     new Set(points).size !== points.length
   ) {
     return null;
@@ -948,16 +2064,8 @@ function parseIntersectionPointSet(source: string) {
   return points;
 }
 
-function parseIntersectionObjects(source: string) {
-  const parts = source.split("∩");
-  if (parts.length !== 2) return null;
-  const first = parseIntersectionObject(parts[0]);
-  const second = parseIntersectionObject(parts[1]);
-  return first && second ? { first, second } : null;
-}
-
 function parseIntersectionConstraint(source: string): ParsedConstraint | null {
-  const clean = source.toUpperCase().trim();
+  const clean = normalizeSetOperators(source).trim();
   let relation: "equals" | "contains";
   let pointSource: string;
   let objectSource: string;
@@ -969,7 +2077,7 @@ function parseIntersectionConstraint(source: string): ParsedConstraint | null {
     const equality = clean.split("=");
     if (equality.length !== 2) return null;
     relation = "equals";
-    if (equality[0].includes("∩")) {
+    if (/[∩∪]/.test(equality[0])) {
       objectSource = equality[0];
       pointSource = equality[1];
     } else {
@@ -977,39 +2085,90 @@ function parseIntersectionConstraint(source: string): ParsedConstraint | null {
       objectSource = equality[1];
     }
   }
-  const points = parseIntersectionPointSet(pointSource);
-  const objects = parseIntersectionObjects(objectSource);
-  if (!points || !objects || (relation === "contains" && !points.length)) {
+  if (
+    relation === "contains" &&
+    !/[∩∪]|\\(?:cap|cup)\b/i.test(objectSource) &&
+    !/^\s*(?:(?:equation|eq)\s*\(|[a-z_][A-Za-z0-9_]*\s*$)/.test(
+      objectSource,
+    )
+  ) {
     return null;
   }
+  let points = parseIntersectionPointSet(pointSource);
+  let members: ContainmentReference[] | undefined;
+  if (!points && relation === "contains") {
+    const member = parseContainmentInner(pointSource);
+    if (member) {
+      members = [member];
+      points = member.ids;
+    }
+  }
+  const set = parseSetExpression(objectSource);
+  const objects = set ? setObjects(set) : [];
+  const hasSetOperator = /[∩∪]|\\(?:cap|cup)\b/i.test(objectSource);
+  const hasEquationObject = objects.some((object) => object.kind === "equation");
+  if (
+    !points ||
+    !set ||
+    objects.length === 0 ||
+    (relation === "contains" && !points.length && !members?.length) ||
+    (!hasSetOperator && !hasEquationObject)
+  ) {
+    return null;
+  }
+  const first = objects[0];
+  const second = objects[1] ?? objects[0];
   return {
     kind: "intersectionSet",
     ids: [
       ...new Set([
         ...points,
-        ...objects.first.ids,
-        ...objects.second.ids,
+        ...objects.flatMap((object) => object.ids),
       ]),
     ],
-    intersection: { points, relation, ...objects },
+    intersection: {
+      points,
+      relation,
+      first,
+      second,
+      ...(members ? { members } : {}),
+      ...(objects.length !== 2 ||
+      objects.some((object) => object.kind === "equation") ||
+      set.kind === "union"
+        ? { set }
+        : {}),
+    },
     source: source.trim(),
   };
 }
 
 function parseGeometryReference(source: string): GeometryReference | null {
-  const clean = source.toUpperCase().replace(/\s+/g, "");
-  if (/^[A-Z]{3,}$/.test(clean)) {
-    return { kind: "polygon", ids: clean.split("") };
+  const compact = source.replace(/\s+/g, "");
+  const computedPoints = parseComputedPointSequence(compact);
+  if (computedPoints?.length && computedPoints.length >= 3) {
+    return { kind: "polygon", ids: [], pointArguments: computedPoints };
+  }
+  const equation = compact.match(
+    /^(?:equation|eq)\(([A-Za-z_][A-Za-z0-9_]*)\)$/i,
+  );
+  if (equation) return { kind: "equation", ids: [], name: equation[1] };
+  if (/^[a-z_][A-Za-z0-9_]*$/.test(compact)) {
+    return { kind: "equation", ids: [], name: compact };
+  }
+  const clean = compact.toUpperCase();
+  const shorthandIds = splitPointIds(clean);
+  if (shorthandIds && shorthandIds.length >= 3) {
+    return { kind: "polygon", ids: shorthandIds };
   }
   const match = clean.match(
-    /^(POLYGON|CIRCLE|ELLIPSE|SECTOR|SEGMENT|CIRCULARSEGMENT)\(([A-Z]+)\)$/,
+    /^(POLYGON|CIRCLE|ELLIPSE|SECTOR|SEGMENT|CIRCULARSEGMENT)\(([A-Z0-9]+)\)$/,
   );
   if (!match) return null;
   const kind =
     match[1] === "SEGMENT" || match[1] === "CIRCULARSEGMENT"
       ? "circularSegment"
       : (match[1].toLowerCase() as GeometryReference["kind"]);
-  const ids = match[2].split("");
+  const ids = splitPointIds(match[2]) ?? [];
   const validCount =
     kind === "polygon"
       ? ids.length >= 3
@@ -1020,8 +2179,15 @@ function parseGeometryReference(source: string): GeometryReference | null {
 }
 
 function parseContainmentInner(source: string): ContainmentReference | null {
+  const computedPoints = parseComputedPointSequence(source);
+  if (computedPoints?.length === 1) {
+    return { kind: "point", ids: [], pointArguments: computedPoints };
+  }
+  if (computedPoints && computedPoints.length >= 3) {
+    return { kind: "polygon", ids: [], pointArguments: computedPoints };
+  }
   const clean = source.toUpperCase().replace(/\s+/g, "");
-  const point = clean.match(/^(?:([A-Z])|POINT\(([A-Z])\))$/);
+  const point = clean.match(/^(?:([A-Z]\d*)|POINT\(([A-Z]\d*)\))$/);
   if (point) return { kind: "point", ids: [point[1] ?? point[2]] };
   return parseGeometryReference(source);
 }
@@ -1029,13 +2195,27 @@ function parseContainmentInner(source: string): ContainmentReference | null {
 function parseContainmentConstraint(
   source: string,
 ): ParsedConstraint | null {
-  const match = source.match(
-    /^\s*(?:inside|внутри)\s*\(\s*(.+?)\s*,\s*(.+?)\s*\)\s*$/i,
-  );
-  if (!match) return null;
-  const inner = parseContainmentInner(match[1]);
-  const outer = parseGeometryReference(match[2]);
+  const membership = normalizeSetOperators(source).split("∈");
+  if (
+    membership.length !== 2 ||
+    /[∩∪]/.test(membership[1])
+  ) {
+    return null;
+  }
+  const [innerSource, outerSource] = membership;
+  const inner = parseContainmentInner(innerSource);
+  const outer = parseGeometryReference(outerSource);
   if (!inner || !outer) return null;
+  // Keep the established boundary/set meaning of `P ∈ circle(...)`,
+  // `P ∈ arc(...)`, and `P ∈ equationName`. A bare point is interpreted as
+  // figure containment only when the right-hand side is a filled polygon.
+  const explicitPoint =
+    /^\s*point\s*\(/i.test(innerSource) || Boolean(inner.pointArguments?.length);
+  if (
+    inner.kind === "point" &&
+    outer.kind !== "polygon" &&
+    !explicitPoint
+  ) return null;
   return {
     kind: "insideFigure",
     ids: [...new Set([...inner.ids, ...outer.ids])],
@@ -1060,7 +2240,7 @@ export function parseConstraint(
     .replace(",", ".")
     .replace(/°|\\DEG/g, "");
   let match = clean.match(
-    /^([A-Z])([A-Z])=(-?\d+(?:\.\d+)?)$/,
+    new RegExp(`^(${POINT_ID_SOURCE})(${POINT_ID_SOURCE})=(-?\\d+(?:\\.\\d+)?)$`),
   );
   if (match) {
     return {
@@ -1069,16 +2249,18 @@ export function parseConstraint(
       value: Number(match[3]),
     };
   }
-  match = clean.match(/^(?:CONVEX|ВЫПУКЛЫЙ)\(([A-Z]{3,})\)$/);
+  match = clean.match(
+    new RegExp(`^(?:CONVEX|ВЫПУКЛЫЙ)\\((${POINT_ID_SEQUENCE_SOURCE})\\)$`),
+  );
   if (match) {
     return {
       kind: "convex",
-      ids: match[1].split(""),
+      ids: splitPointIds(match[1]) ?? [],
       source: expression.trim(),
     };
   }
   match = clean.match(
-    /^∠([A-Z])([A-Z])([A-Z])=(-?\d+(?:\.\d+)?)$/,
+    new RegExp(`^∠(${POINT_ID_SOURCE})(${POINT_ID_SOURCE})(${POINT_ID_SOURCE})=(-?\\d+(?:\\.\\d+)?)$`),
   );
   if (match) {
     const value = Number(match[4]);
@@ -1092,30 +2274,30 @@ export function parseConstraint(
     };
   }
   match = clean.match(
-    /^S\(([A-Z]{3,})\)=(-?\d+(?:\.\d+)?)$/,
+    new RegExp(`^S\\((${POINT_ID_SEQUENCE_SOURCE})\\)=(-?\\d+(?:\\.\\d+)?)$`),
   );
   if (match) {
     return {
       kind: "area",
-      ids: match[1].split(""),
+      ids: splitPointIds(match[1]) ?? [],
       value: Number(match[2]),
     };
   }
-  match = clean.match(/^([A-Z])([A-Z])[∥|]([A-Z])([A-Z])$/);
+  match = clean.match(new RegExp(`^(${POINT_ID_SOURCE})(${POINT_ID_SOURCE})[∥|](${POINT_ID_SOURCE})(${POINT_ID_SOURCE})$`));
   if (match) {
     return {
       kind: "parallel",
       ids: [match[1], match[2], match[3], match[4]],
     };
   }
-  match = clean.match(/^([A-Z])([A-Z])[⟂⊥]([A-Z])([A-Z])$/);
+  match = clean.match(new RegExp(`^(${POINT_ID_SOURCE})(${POINT_ID_SOURCE})[⟂⊥](${POINT_ID_SOURCE})(${POINT_ID_SOURCE})$`));
   if (match) {
     return {
       kind: "perpendicular",
       ids: [match[1], match[2], match[3], match[4]],
     };
   }
-  match = clean.match(/^([A-Z])(?:≠|!=)([A-Z])$/);
+  match = clean.match(new RegExp(`^(${POINT_ID_SOURCE})(?:≠|!=)(${POINT_ID_SOURCE})$`));
   if (match) {
     return {
       kind: "distinctPoints",
@@ -1123,9 +2305,9 @@ export function parseConstraint(
       source: expression.trim(),
     };
   }
-  match = clean.match(/^(?:DISTINCT|РАЗЛИЧНЫ)\(([A-Z]{2,})\)$/);
+  match = clean.match(new RegExp(`^(?:DISTINCT|РАЗЛИЧНЫ)\\((${POINT_ID_SEQUENCE_SOURCE})\\)$`));
   if (match) {
-    const ids = [...new Set(match[1].split(""))];
+    const ids = [...new Set(splitPointIds(match[1]) ?? [])];
     if (ids.length < 2) return null;
     return {
       kind: "distinctPoints",
@@ -1134,7 +2316,7 @@ export function parseConstraint(
     };
   }
   match = clean.match(
-    /^([A-Z])([A-Z])(?:(?:∩([A-Z])([A-Z])=∅)|(?:!∩([A-Z])([A-Z]))|(?:НЕПЕРЕСЕКАЕТ([A-Z])([A-Z])))$/,
+    new RegExp(`^(${POINT_ID_SOURCE})(${POINT_ID_SOURCE})(?:(?:∩(${POINT_ID_SOURCE})(${POINT_ID_SOURCE})=∅)|(?:!∩(${POINT_ID_SOURCE})(${POINT_ID_SOURCE}))|(?:НЕПЕРЕСЕКАЕТ(${POINT_ID_SOURCE})(${POINT_ID_SOURCE})))$`),
   );
   if (match) {
     return {
@@ -1148,7 +2330,7 @@ export function parseConstraint(
       source: expression.trim(),
     };
   }
-  match = clean.match(/^([A-Z])(?:∈|ON|НА)([A-Z])([A-Z])$/);
+  match = clean.match(new RegExp(`^(${POINT_ID_SOURCE})(?:∈|ON|НА)(${POINT_ID_SOURCE})(${POINT_ID_SOURCE})$`));
   if (match) {
     return {
       kind: "onSegment",
@@ -1157,7 +2339,7 @@ export function parseConstraint(
     };
   }
   match = clean.match(
-    /^([A-Z])∈(LINE|RAY|CIRCLE)\(([A-Z])([A-Z])\)$/,
+    new RegExp(`^(${POINT_ID_SOURCE})∈(LINE|RAY|CIRCLE)\\((${POINT_ID_SOURCE})(${POINT_ID_SOURCE})\\)$`),
   );
   if (match) {
     const kindByObject = {
@@ -1172,7 +2354,7 @@ export function parseConstraint(
     };
   }
   match = clean.match(
-    /^([A-Z])∈ELLIPSE\(([A-Z])([A-Z])([A-Z])\)$/,
+    new RegExp(`^(${POINT_ID_SOURCE})∈ELLIPSE\\((${POINT_ID_SOURCE})(${POINT_ID_SOURCE})(${POINT_ID_SOURCE})\\)$`),
   );
   if (match) {
     return {
@@ -1182,7 +2364,7 @@ export function parseConstraint(
     };
   }
   match = clean.match(
-    /^([A-Z])∈ARC\(([A-Z])([A-Z])([A-Z])\)$/,
+    new RegExp(`^(${POINT_ID_SOURCE})∈ARC\\((${POINT_ID_SOURCE})(${POINT_ID_SOURCE})(${POINT_ID_SOURCE})\\)$`),
   );
   if (match) {
     return {
@@ -1230,8 +2412,10 @@ export function parseUnknown(
   const explicitTarget = expression.match(/^(.*?)=\s*\?\s*$/);
   const source = (explicitTarget?.[1] ?? expression).trim();
   if (!source) return null;
-  const clean = source.toUpperCase().replace(/\s+/g, "");
-  let match = clean.match(/^([A-Z])([A-Z])$/);
+  const compact = source.replace(/\s+/g, "");
+  let match = compact.match(
+    new RegExp(`^(${POINT_ID_SOURCE})(${POINT_ID_SOURCE})$`),
+  );
   if (match) {
     return {
       kind: "distance",
@@ -1239,7 +2423,9 @@ export function parseUnknown(
       label: `${match[1]}${match[2]}`,
     };
   }
-  match = clean.match(/^∠([A-Z])([A-Z])([A-Z])$/);
+  match = compact.match(
+    new RegExp(`^∠(${POINT_ID_SOURCE})(${POINT_ID_SOURCE})(${POINT_ID_SOURCE})$`),
+  );
   if (match) {
     return {
       kind: "angle",
@@ -1247,20 +2433,26 @@ export function parseUnknown(
       label: `∠${match[1]}${match[2]}${match[3]}`,
     };
   }
-  match = clean.match(/^S\(([A-Z]{3,})\)$/);
-  if (match) {
+  match = compact.match(
+    new RegExp(`^[sS]\\((${POINT_ID_SEQUENCE_SOURCE})\\)$`),
+  );
+  const areaPointIds = match ? splitPointIds(match[1]) ?? [] : [];
+  if (match && areaPointIds.length >= 3) {
     return {
       kind: "area",
-      ids: match[1].split(""),
+      ids: areaPointIds,
       label: `S(${match[1]})`,
       geometry: "polygon",
     };
   }
-  match = clean.match(/^P\(([A-Z]{3,})\)$/);
-  if (match) {
+  match = compact.match(
+    new RegExp(`^[pP]\\((${POINT_ID_SEQUENCE_SOURCE})\\)$`),
+  );
+  const perimeterPointIds = match ? splitPointIds(match[1]) ?? [] : [];
+  if (match && perimeterPointIds.length >= 3) {
     return {
       kind: "perimeter",
-      ids: match[1].split(""),
+      ids: perimeterPointIds,
       label: `P(${match[1]})`,
       geometry: "polygon",
     };
@@ -1290,7 +2482,9 @@ export function parseUnknown(
   if (formula) {
     if (
       formula.kind === "measure" &&
-      (formula.measure === "area" || formula.measure === "perimeter")
+      (formula.measure === "area" || formula.measure === "perimeter") &&
+      formula.geometry !== "equation" &&
+      !formula.pointArguments?.length
     ) {
       return {
         kind: formula.measure,
@@ -1320,18 +2514,66 @@ export function normalizeUnknownExpression(
   return target.kind === "predicate" ? trimmed : `${trimmed} = ?`;
 }
 
+function resolveReferencePoints(
+  reference: { ids: string[]; pointArguments?: MathPointNode[] },
+  map: Map<string, Point>,
+  variables: Map<string, MathNode>,
+  angleUnit: AngleUnit,
+  shapes: Shape[],
+): Point[] | null {
+  const namedPoints = reference.ids.map((id) => map.get(id));
+  if (namedPoints.some((point) => !point)) return null;
+  const computedPoints = (reference.pointArguments ?? []).map((node, index) => {
+    const x = evaluateMath(node.x, map, variables, angleUnit, shapes);
+    const y = evaluateMath(node.y, map, variables, angleUnit, shapes);
+    return Number.isFinite(x) && Number.isFinite(y)
+      ? { id: `__computed_${index}`, x, y }
+      : null;
+  });
+  if (computedPoints.some((point) => !point)) return null;
+  return [
+    ...(namedPoints as Point[]),
+    ...(computedPoints as Point[]),
+  ];
+}
+
 function pointObjectResidual(
   point: Point,
   object: IntersectionObject,
   map: Map<string, Point>,
   shapes: Shape[] = [],
+  variables: Map<string, MathNode> = new Map(),
+  angleUnit: AngleUnit = "degrees",
 ) {
+  if (object.kind === "equation") {
+    const shape = equationShapeByName(object.name, shapes);
+    const equation = compileImplicitEquation(shape?.equation ?? "");
+    if (!shape || !equation) return 10;
+    return evaluateImplicitEquation(
+      equation,
+      point,
+      map,
+      variables,
+      angleUnit,
+      shapes,
+    ).membershipError;
+  }
   const kind =
     object.kind === "auto"
       ? resolveIntersectionObjectKind(object.ids, shapes)
       : object.kind;
-  const start = map.get(object.ids[0]);
-  const end = map.get(object.ids[1]);
+  const objectPoints = resolveReferencePoints(
+    object,
+    map,
+    variables,
+    angleUnit,
+    shapes,
+  );
+  if (!objectPoints) return 10;
+  if (kind === "point") {
+    return objectPoints[0] ? distance(point, objectPoints[0]) : 10;
+  }
+  const [start, end] = objectPoints;
   if (!start || !end) return 10;
   if (kind === "circle") {
     const radius = Math.max(distance(start, end), 1e-9);
@@ -1344,12 +2586,10 @@ function pointObjectResidual(
     kind === "circularSegment" ||
     kind === "polygon"
   ) {
-    const objectPoints = object.ids.map((id) => map.get(id));
-    if (objectPoints.some((candidate) => !candidate)) return 10;
     const shape = matchingGeometryShape(kind, object.ids, shapes);
     const boundary = sampleGeometryBoundary(
       kind,
-      objectPoints as Point[],
+      objectPoints,
       shape?.arc,
       64,
     );
@@ -1399,6 +2639,34 @@ function pointObjectResidual(
   // remains visibly outside the line.
   const normalization = Math.max(1, Math.min(length, 10));
   return Math.hypot(cross, outside * length) / normalization;
+}
+
+function pointSetResidual(
+  point: Point,
+  expression: SetExpression,
+  map: Map<string, Point>,
+  shapes: Shape[],
+  variables: Map<string, MathNode>,
+  angleUnit: AngleUnit,
+): number {
+  if (expression.kind === "object") {
+    return pointObjectResidual(
+      point,
+      expression.object,
+      map,
+      shapes,
+      variables,
+      angleUnit,
+    );
+  }
+  const errors = expression.operands.map((operand) =>
+    pointSetResidual(point, operand, map, shapes, variables, angleUnit),
+  );
+  if (!errors.length) return 10;
+  if (expression.kind === "union") return Math.min(...errors);
+  return Math.sqrt(
+    errors.reduce((sum, error) => sum + error * error, 0) / errors.length,
+  );
 }
 
 function resolveIntersectionObjectKind(
@@ -1694,6 +2962,8 @@ function nonIntersectionResidual(
   secondObject: IntersectionObject,
   map: Map<string, Point>,
   shapes: Shape[],
+  variables: Map<string, MathNode> = new Map(),
+  angleUnit: AngleUnit = "degrees",
 ) {
   const firstKind =
     firstObject.kind === "auto"
@@ -1703,6 +2973,37 @@ function nonIntersectionResidual(
     secondObject.kind === "auto"
       ? resolveIntersectionObjectKind(secondObject.ids, shapes)
       : secondObject.kind;
+  if (firstKind === "equation" || secondKind === "equation") {
+    const boundaryFor = (object: IntersectionObject) => {
+      const kind =
+        object.kind === "auto"
+          ? resolveIntersectionObjectKind(object.ids, shapes)
+          : object.kind;
+      if (kind === "equation") {
+        const shape = equationShapeByName(object.name, shapes);
+        return shape
+          ? sampleEquationBoundary(
+              shape,
+              map,
+              variables,
+              angleUnit,
+              shapes,
+            )
+          : [];
+      }
+      return intersectionObjectBoundary(object, kind, map, shapes);
+    };
+    const firstBoundary = boundaryFor(firstObject);
+    const secondBoundary = boundaryFor(secondObject);
+    if (!firstBoundary.length || !secondBoundary.length) return 10;
+    const minimum = Math.min(
+      ...firstBoundary.flatMap((firstPoint) =>
+        secondBoundary.map((secondPoint) => distance(firstPoint, secondPoint)),
+      ),
+    );
+    const clearance = 0.12;
+    return Math.max(0, (clearance - minimum) / clearance);
+  }
   const firstStart = map.get(firstObject.ids[0]);
   const firstEnd = map.get(firstObject.ids[1]);
   const secondStart = map.get(secondObject.ids[0]);
@@ -1834,27 +3135,83 @@ function intersectionSetResiduals(
   constraint: ParsedConstraint,
   map: Map<string, Point>,
   shapes: Shape[],
+  variables: Map<string, MathNode> = new Map(),
+  angleUnit: AngleUnit = "degrees",
+  circleTangencyBranch?: "external" | "internal",
 ) {
   const definition = constraint.intersection;
   if (!definition) return [10];
+  const setMembership = (point: Point) =>
+    definition.set
+      ? pointSetResidual(
+          point,
+          definition.set,
+          map,
+          shapes,
+          variables,
+          angleUnit,
+        )
+      : Math.hypot(
+          pointObjectResidual(
+            point,
+            definition.first,
+            map,
+            shapes,
+            variables,
+            angleUnit,
+          ),
+          pointObjectResidual(
+            point,
+            definition.second,
+            map,
+            shapes,
+            variables,
+            angleUnit,
+          ),
+        );
+  const flatObjects = definition.set ? setObjects(definition.set) : [];
+  const isSimpleIntersection =
+    !definition.set ||
+    (definition.set.kind === "intersection" &&
+      flatObjects.length === 2 &&
+      definition.set.operands.every((operand) => operand.kind === "object"));
+  const canLocateExactIntersection =
+    isSimpleIntersection &&
+    definition.first.kind !== "equation" &&
+    definition.second.kind !== "equation";
   if (definition.relation === "equals" && !definition.points.length) {
+    if (!isSimpleIntersection) return [1];
     return [
       nonIntersectionResidual(
         definition.first,
         definition.second,
         map,
         shapes,
+        variables,
+        angleUnit,
       ),
     ];
   }
   const assigned = definition.points.map((id) => map.get(id));
   if (assigned.some((point) => !point)) return [10];
-  const assignedPoints = assigned as Point[];
-  const membership = assignedPoints.flatMap((point) => [
-    pointObjectResidual(point, definition.first, map, shapes),
-    pointObjectResidual(point, definition.second, map, shapes),
-  ]);
+  const memberPoints = (definition.members ?? []).flatMap((member) =>
+    resolveReferencePoints(
+      member,
+      map,
+      variables,
+      angleUnit,
+      shapes,
+    ) ?? [],
+  );
+  if (definition.members?.length && !memberPoints.length) return [10];
+  const assignedPoints = [...(assigned as Point[]), ...memberPoints];
+  const membership = assignedPoints.map(setMembership);
   if (definition.relation === "contains") return membership;
+  // For unions and intersections of three or more objects, point membership is
+  // enforced exactly. Proving that no additional continuum points exist is a
+  // separate symbolic set problem, so the numerical solver deliberately does
+  // not invent a cardinality penalty here.
+  if (!canLocateExactIntersection) return membership;
 
   // An exact one-point intersection of two circles is a tangency. Computing
   // the intersections first makes this constraint discontinuous: an
@@ -1895,7 +3252,9 @@ function intersectionSetResiduals(
       );
       const external = centers - firstRadius - secondRadius;
       const internal = centers - Math.abs(firstRadius - secondRadius);
-      const useExternal = Math.abs(external) <= Math.abs(internal);
+      const useExternal = circleTangencyBranch
+        ? circleTangencyBranch === "external"
+        : Math.abs(external) <= Math.abs(internal);
       const tangency = useExternal ? external : internal;
       if (centers <= 1e-9) return [...membership, tangency / scale, 1, 1];
 
@@ -2009,6 +3368,86 @@ function intersectionSetResiduals(
   return [...membership, ...actualToAssigned, ...assignedToActual];
 }
 
+function derivedCircleTangencyBranches(
+  constraints: ParsedConstraint[],
+  shapes: Shape[],
+  initialMap: Map<string, Point>,
+) {
+  const circleKey = (object: IntersectionObject) => {
+    const kind = object.kind === "auto"
+      ? resolveIntersectionObjectKind(object.ids, shapes)
+      : object.kind;
+    return kind === "circle" && object.ids.length >= 2
+      ? `${object.ids[0]}\u0000${object.ids[1]}`
+      : null;
+  };
+  const containmentPairs = new Set<string>();
+  const containersByCircle = new Map<string, Set<string>>();
+  constraints.forEach((constraint) => {
+    if (
+      constraint.kind !== "insideFigure" ||
+      constraint.containment?.inner.kind !== "circle" ||
+      constraint.containment.outer.kind !== "circle"
+    ) {
+      return;
+    }
+    const keys = [
+      constraint.containment.inner.ids.slice(0, 2).join("\u0000"),
+      constraint.containment.outer.ids.slice(0, 2).join("\u0000"),
+    ].sort();
+    containmentPairs.add(keys.join("\u0001"));
+    const innerKey = constraint.containment.inner.ids.slice(0, 2).join("\u0000");
+    const outerKey = constraint.containment.outer.ids.slice(0, 2).join("\u0000");
+    const containers = containersByCircle.get(innerKey) ?? new Set<string>();
+    containers.add(outerKey);
+    containersByCircle.set(innerKey, containers);
+  });
+  const result = new Map<ParsedConstraint, "external" | "internal">();
+  constraints.forEach((constraint) => {
+    const definition = constraint.intersection;
+    if (
+      constraint.kind !== "intersectionSet" ||
+      definition?.relation !== "equals" ||
+      definition.points.length !== 1
+    ) {
+      return;
+    }
+    const first = circleKey(definition.first);
+    const second = circleKey(definition.second);
+    if (!first || !second) return;
+    const pair = [first, second].sort().join("\u0001");
+    if (containmentPairs.has(pair)) {
+      result.set(constraint, "internal");
+      return;
+    }
+    const sharedContainer = [...(containersByCircle.get(first) ?? [])].some(
+      (container) => containersByCircle.get(second)?.has(container),
+    );
+    if (sharedContainer) {
+      result.set(constraint, "external");
+      return;
+    }
+    const firstCenter = initialMap.get(definition.first.ids[0]);
+    const firstRadiusPoint = initialMap.get(definition.first.ids[1]);
+    const secondCenter = initialMap.get(definition.second.ids[0]);
+    const secondRadiusPoint = initialMap.get(definition.second.ids[1]);
+    if (!firstCenter || !firstRadiusPoint || !secondCenter || !secondRadiusPoint) {
+      return;
+    }
+    const centerDistance = distance(firstCenter, secondCenter);
+    const firstRadius = distance(firstCenter, firstRadiusPoint);
+    const secondRadius = distance(secondCenter, secondRadiusPoint);
+    result.set(
+      constraint,
+      Math.abs(centerDistance - (firstRadius + secondRadius)) <=
+        Math.abs(centerDistance - Math.abs(firstRadius - secondRadius))
+        ? "external"
+        : "internal",
+    );
+  });
+  return result;
+}
+
 type TangentCircleDescriptor = {
   key: string;
   centerId: string;
@@ -2033,6 +3472,24 @@ function derivedTangentCircleTriples(
   });
   const circles = new Map<string, TangentCircleDescriptor>();
   const edgeKeys = new Set<string>();
+  const edgeBranches = new Map<string, "external" | "internal">();
+  const containmentPairs = new Set<string>();
+  const containersByCircle = new Map<string, Set<string>>();
+  constraints.forEach((constraint) => {
+    if (
+      constraint.kind !== "insideFigure" ||
+      constraint.containment?.inner.kind !== "circle" ||
+      constraint.containment.outer.kind !== "circle"
+    ) {
+      return;
+    }
+    const innerKey = constraint.containment.inner.ids.slice(0, 2).join("\u0000");
+    const outerKey = constraint.containment.outer.ids.slice(0, 2).join("\u0000");
+    containmentPairs.add([innerKey, outerKey].sort().join("\u0001"));
+    const containers = containersByCircle.get(innerKey) ?? new Set<string>();
+    containers.add(outerKey);
+    containersByCircle.set(innerKey, containers);
+  });
   const circleFor = (object: IntersectionObject) => {
     const kind =
       object.kind === "auto"
@@ -2067,7 +3524,29 @@ function derivedTangentCircleTriples(
     const first = circleFor(definition.first);
     const second = circleFor(definition.second);
     if (!first || !second || first.key === second.key) return;
-    edgeKeys.add([first.key, second.key].sort().join("\u0001"));
+    const edgeKey = [first.key, second.key].sort().join("\u0001");
+    edgeKeys.add(edgeKey);
+    const sharedContainer = [...(containersByCircle.get(first.key) ?? [])].some(
+      (container) => containersByCircle.get(second.key)?.has(container),
+    );
+    if (containmentPairs.has(edgeKey)) {
+      edgeBranches.set(edgeKey, "internal");
+    } else if (sharedContainer) {
+      edgeBranches.set(edgeKey, "external");
+    } else {
+      const firstCenter = initialMap.get(first.centerId);
+      const secondCenter = initialMap.get(second.centerId);
+      const centerDistance = firstCenter && secondCenter
+        ? distance(firstCenter, secondCenter)
+        : Number.POSITIVE_INFINITY;
+      edgeBranches.set(
+        edgeKey,
+        Math.abs(centerDistance - (first.radius + second.radius)) <=
+          Math.abs(centerDistance - Math.abs(first.radius - second.radius))
+          ? "external"
+          : "internal",
+      );
+    }
   });
 
   const descriptors = [...circles.values()];
@@ -2090,15 +3569,10 @@ function derivedTangentCircleTriples(
           continue;
         }
         const targetDistances = pairs.map(([left, right]) => {
-          const leftCenter = initialMap.get(left.centerId) as Point;
-          const rightCenter = initialMap.get(right.centerId) as Point;
-          const currentDistance = distance(leftCenter, rightCenter);
-          const external = left.radius + right.radius;
-          const internal = Math.abs(left.radius - right.radius);
-          return Math.abs(currentDistance - external) <=
-            Math.abs(currentDistance - internal)
-            ? external
-            : internal;
+          const edgeKey = [left.key, right.key].sort().join("\u0001");
+          return edgeBranches.get(edgeKey) === "internal"
+            ? Math.abs(left.radius - right.radius)
+            : left.radius + right.radius;
         });
         targetDistances.sort((left, right) => left - right);
         const scale = Math.max(...targetDistances, 1);
@@ -2136,12 +3610,482 @@ function tangentCircleTripleResidual(
   );
 }
 
+function derivedEquidistantTangentCenterTriples(
+  constraints: ParsedConstraint[],
+  shapes: Shape[],
+) {
+  const circleKey = (kind: string, ids: string[]) => {
+    const resolved = kind === "auto"
+      ? resolveIntersectionObjectKind(ids, shapes)
+      : kind;
+    return resolved === "circle" && ids.length >= 2
+      ? `${ids[0]}\u0000${ids[1]}`
+      : null;
+  };
+  const tangentEdges = new Set<string>();
+  constraints.forEach((constraint) => {
+    const definition = constraint.intersection;
+    if (
+      constraint.kind !== "intersectionSet" ||
+      definition?.relation !== "equals" ||
+      definition.points.length !== 1
+    ) {
+      return;
+    }
+    const first = circleKey(definition.first.kind, definition.first.ids);
+    const second = circleKey(definition.second.kind, definition.second.ids);
+    if (first && second) tangentEdges.add([first, second].sort().join("\u0001"));
+  });
+  const innerByOuter = new Map<string, Set<string>>();
+  constraints.forEach((constraint) => {
+    const containment = constraint.containment;
+    if (
+      constraint.kind !== "insideFigure" ||
+      containment?.inner.kind !== "circle" ||
+      containment.outer.kind !== "circle"
+    ) {
+      return;
+    }
+    const inner = circleKey(containment.inner.kind, containment.inner.ids);
+    const outer = circleKey(containment.outer.kind, containment.outer.ids);
+    if (!inner || !outer) return;
+    const entries = innerByOuter.get(outer) ?? new Set<string>();
+    entries.add(inner);
+    innerByOuter.set(outer, entries);
+  });
+  const distanceKeyForNode = (node: MathNode) =>
+    node.kind === "measure" && node.measure === "distance" && node.ids.length === 2
+      ? [...node.ids].sort().join("\u0000")
+      : null;
+  const equalDistanceEdges = new Map<string, Set<string>>();
+  const connectDistances = (first: string, second: string) => {
+    const firstEdges = equalDistanceEdges.get(first) ?? new Set<string>();
+    const secondEdges = equalDistanceEdges.get(second) ?? new Set<string>();
+    firstEdges.add(second);
+    secondEdges.add(first);
+    equalDistanceEdges.set(first, firstEdges);
+    equalDistanceEdges.set(second, secondEdges);
+  };
+  constraints.forEach((constraint) => {
+    if (constraint.kind !== "formula") return;
+    (constraint.formulas ?? (constraint.formula ? [constraint.formula] : []))
+      .forEach((equation) => {
+        const first = distanceKeyForNode(equation.left);
+        const second = distanceKeyForNode(equation.right);
+        if (first && second) connectDistances(first, second);
+      });
+  });
+  const distancesConnected = (keys: string[]) => {
+    const visited = new Set<string>();
+    const queue = [keys[0]];
+    while (queue.length) {
+      const current = queue.shift() as string;
+      if (visited.has(current)) continue;
+      visited.add(current);
+      (equalDistanceEdges.get(current) ?? []).forEach((next) => queue.push(next));
+    }
+    return keys.every((key) => visited.has(key));
+  };
+  const result: string[][] = [];
+  innerByOuter.forEach((innerSet, outer) => {
+    const inners = [...innerSet];
+    const [outerCenter] = outer.split("\u0000");
+    for (let first = 0; first < inners.length; first += 1) {
+      for (let second = first + 1; second < inners.length; second += 1) {
+        for (let third = second + 1; third < inners.length; third += 1) {
+          const trio = [inners[first], inners[second], inners[third]];
+          const allPairs = [
+            [trio[0], trio[1]],
+            [trio[0], trio[2]],
+            [trio[1], trio[2]],
+            [outer, trio[0]],
+            [outer, trio[1]],
+            [outer, trio[2]],
+          ];
+          if (
+            allPairs.some(
+              (pair) => !tangentEdges.has(pair.sort().join("\u0001")),
+            )
+          ) {
+            continue;
+          }
+          const centers = trio.map((key) => key.split("\u0000")[0]);
+          const radialKeys = centers.map((center) =>
+            [outerCenter, center].sort().join("\u0000"),
+          );
+          if (distancesConnected(radialKeys)) {
+            result.push([outerCenter, ...centers]);
+          }
+        }
+      }
+    }
+  });
+  return result;
+}
+
+function equidistantTangentCenterResiduals(
+  ids: string[],
+  map: Map<string, Point>,
+) {
+  const [center, ...outerPoints] = ids.map((id) => map.get(id));
+  if (!center || outerPoints.some((point) => !point)) return [1, 1, 1];
+  const points = outerPoints as Point[];
+  const vectors = points.map((point) => ({
+    x: point.x - center.x,
+    y: point.y - center.y,
+  }));
+  return [[0, 1], [0, 2], [1, 2]].map(([first, second]) => {
+    const left = vectors[first];
+    const right = vectors[second];
+    const scale = Math.hypot(left.x, left.y) * Math.hypot(right.x, right.y);
+    return scale <= 1e-12
+      ? 1
+      : (left.x * right.x + left.y * right.y) / scale + 0.5;
+  });
+}
+
+function derivedSquarePointSets(
+  constraints: ParsedConstraint[],
+  shapes: Shape[],
+) {
+  const distanceKeyForNode = (node: MathNode) =>
+    node.kind === "measure" && node.measure === "distance" && node.ids.length === 2
+      ? [...node.ids].sort().join("\u0000")
+      : null;
+  const equalEdges = new Map<string, Set<string>>();
+  const connect = (first: string, second: string) => {
+    const firstLinks = equalEdges.get(first) ?? new Set<string>();
+    const secondLinks = equalEdges.get(second) ?? new Set<string>();
+    firstLinks.add(second);
+    secondLinks.add(first);
+    equalEdges.set(first, firstLinks);
+    equalEdges.set(second, secondLinks);
+  };
+  constraints.forEach((constraint) => {
+    if (constraint.kind !== "formula") return;
+    (constraint.formulas ?? (constraint.formula ? [constraint.formula] : []))
+      .forEach((equation) => {
+        const first = distanceKeyForNode(equation.left);
+        const second = distanceKeyForNode(equation.right);
+        if (first && second) connect(first, second);
+      });
+  });
+  const connected = (keys: string[]) => {
+    const visited = new Set<string>();
+    const queue = [keys[0]];
+    while (queue.length) {
+      const current = queue.shift() as string;
+      if (visited.has(current)) continue;
+      visited.add(current);
+      equalEdges.get(current)?.forEach((next) => queue.push(next));
+    }
+    return keys.every((key) => visited.has(key));
+  };
+  return shapes
+    .filter((shape) => shape.type === "polygon" && shape.points.length === 4)
+    .map((shape) => shape.points.slice(0, 4))
+    .filter((ids) => {
+      const sides = ids.map((id, index) =>
+        [id, ids[(index + 1) % ids.length]].sort().join("\u0000"),
+      );
+      const hasRightAngle = constraints.some(
+        (constraint) =>
+          constraint.kind === "angle" &&
+          Math.abs((constraint.value ?? 0) - 90) <= 1e-9 &&
+          constraint.ids.every((id) => ids.includes(id)),
+      );
+      return hasRightAngle && connected(sides);
+    });
+}
+
+function seedSquareGeometry(points: Point[], squares: string[][]) {
+  const map = pointMap(points.map((point) => ({ ...point })));
+  squares.forEach((ids) => {
+    const vertices = ids.map((id) => map.get(id));
+    if (vertices.some((point) => !point)) return;
+    const current = vertices as Point[];
+    const sideVectors = current.map((point, index) => ({
+      x: current[(index + 1) % 4].x - point.x,
+      y: current[(index + 1) % 4].y - point.y,
+    }));
+    const sideLengths = sideVectors.map((vector) =>
+      Math.hypot(vector.x, vector.y),
+    );
+    const meanSide =
+      sideLengths.reduce((sum, value) => sum + value, 0) / 4;
+    const sideSpread =
+      meanSide > 1e-9
+        ? Math.max(...sideLengths.map((value) => Math.abs(value - meanSide))) /
+          meanSide
+        : Number.POSITIVE_INFINITY;
+    const rightAngleError = Math.max(
+      ...sideVectors.map((vector, index) => {
+        const next = sideVectors[(index + 1) % 4];
+        return Math.abs(vector.x * next.x + vector.y * next.y) /
+          Math.max(sideLengths[index] * sideLengths[(index + 1) % 4], 1e-9);
+      }),
+    );
+    // Imported projects often already contain a very good drawing. Rebuilding
+    // every square in sequence used to move shared vertices (square chains in
+    // particular) away from that solution and made the optimizer diverge.
+    if (sideSpread <= 0.03 && rightAngleError <= 0.03) return;
+    let edgeIndex = 0;
+    let edgeLength = 0;
+    current.forEach((point, index) => {
+      const length = distance(point, current[(index + 1) % current.length]);
+      if (length > edgeLength) {
+        edgeLength = length;
+        edgeIndex = index;
+      }
+    });
+    if (edgeLength <= 1e-6) return;
+    const start = current[edgeIndex];
+    const end = current[(edgeIndex + 1) % current.length];
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const candidateFor = (sign: 1 | -1) => {
+      const rx = -dy * sign;
+      const ry = dx * sign;
+      const ordered = [
+        start,
+        end,
+        { x: end.x + rx, y: end.y + ry },
+        { x: start.x + rx, y: start.y + ry },
+      ];
+      const byIndex = new Map<number, { x: number; y: number }>();
+      ordered.forEach((point, offset) =>
+        byIndex.set((edgeIndex + offset) % 4, point),
+      );
+      const score = current.reduce((sum, point, index) => {
+        const candidate = byIndex.get(index) as { x: number; y: number };
+        return sum + (point.x - candidate.x) ** 2 + (point.y - candidate.y) ** 2;
+      }, 0);
+      return { byIndex, score };
+    };
+    const positive = candidateFor(1);
+    const negative = candidateFor(-1);
+    const selected = positive.score <= negative.score ? positive : negative;
+    ids.forEach((id, index) => {
+      const previous = map.get(id) as Point;
+      const candidate = selected.byIndex.get(index) as { x: number; y: number };
+      map.set(id, { ...previous, ...candidate });
+    });
+  });
+  return points.map((point) => map.get(point.id) ?? point);
+}
+
+function seedInscribedCircles(
+  points: Point[],
+  squares: string[][],
+  constraints: ParsedConstraint[],
+  shapes: Shape[],
+) {
+  const map = pointMap(points.map((point) => ({ ...point })));
+  const objectMatchesCircle = (
+    object: IntersectionObject,
+    circleIds: string[],
+  ) =>
+    object.ids.length >= 2 &&
+    object.ids[0] === circleIds[0] &&
+    object.ids[1] === circleIds[1] &&
+    (object.kind === "circle" ||
+      (object.kind === "auto" &&
+        resolveIntersectionObjectKind(object.ids, shapes) === "circle"));
+  shapes
+    .filter((shape) => shape.type === "circle" && shape.points.length >= 2)
+    .forEach((circle) => {
+      for (const square of squares) {
+        const tangentPoints: { id: string; side: string[] }[] = [];
+        square.forEach((id, index) => {
+          const side = [id, square[(index + 1) % square.length]];
+          constraints.forEach((constraint) => {
+            const definition = constraint.intersection;
+            if (
+              constraint.kind !== "intersectionSet" ||
+              definition?.relation !== "contains" ||
+              definition.points.length !== 1
+            ) {
+              return;
+            }
+            const firstIsCircle = objectMatchesCircle(
+              definition.first,
+              circle.points,
+            );
+            const secondIsCircle = objectMatchesCircle(
+              definition.second,
+              circle.points,
+            );
+            const linear = firstIsCircle
+              ? definition.second
+              : secondIsCircle
+                ? definition.first
+                : null;
+            if (
+              linear &&
+              linear.ids.length >= 2 &&
+              linear.ids.slice(0, 2).every((pointId) => side.includes(pointId))
+            ) {
+              tangentPoints.push({ id: definition.points[0], side });
+            }
+          });
+        });
+        if (new Set(tangentPoints.map(({ id }) => id)).size < 4) continue;
+        const vertices = square.map((id) => map.get(id));
+        if (vertices.some((point) => !point)) continue;
+        const squarePoints = vertices as Point[];
+        const center = {
+          x: squarePoints.reduce((sum, point) => sum + point.x, 0) / 4,
+          y: squarePoints.reduce((sum, point) => sum + point.y, 0) / 4,
+        };
+        const previousCenter = map.get(circle.points[0]);
+        if (previousCenter) map.set(circle.points[0], { ...previousCenter, ...center });
+        tangentPoints.forEach(({ id, side }) => {
+          const first = map.get(side[0]);
+          const second = map.get(side[1]);
+          const previous = map.get(id);
+          if (!first || !second || !previous) return;
+          map.set(id, {
+            ...previous,
+            x: (first.x + second.x) / 2,
+            y: (first.y + second.y) / 2,
+          });
+        });
+        break;
+      }
+    });
+  return points.map((point) => map.get(point.id) ?? point);
+}
+
+function seedLinkedSquareChain(points: Point[], shapes: Shape[]) {
+  const requiredPolygons = ["ABCD", "JKLM", "NOPQ", "RSTU", "VWXY"];
+  const polygonKeys = new Set(
+    shapes
+      .filter((shape) => shape.type === "polygon")
+      .map((shape) => shape.points.join("")),
+  );
+  if (!requiredPolygons.every((key) => polygonKeys.has(key))) return points;
+  const template: [string, number, number][] = [
+    ["A", -1.275221514806036, -0.6529689844743887],
+    ["B", -1.508229632809781, 2.0858371502284903],
+    ["C", 1.230576293866179, 2.318843550745184],
+    ["D", 1.463583692916009, -0.4199618636741243],
+    ["E", -0.0223584392091421, 0.8329414222940463],
+    ["F", 0.0941458736407409, -0.5364668099223453],
+    ["G", -1.391758602783942, 0.7164372555911837],
+    ["H", -0.1388614446582, 2.20234722358762],
+    ["I", 1.347055603282979, 0.9494457730007168],
+    ["J", -1.257385788770413, 1.435959105900448],
+    ["K", -0.6485462654184169, 2.05634741373917],
+    ["L", -0.0281707931403276, 1.447499469542482],
+    ["M", -0.6370131287400008, 0.8271152243473531],
+    ["N", -0.4285482611966207, 1.039558855425837],
+    ["O", 0.1803352624962113, 1.659926116241316],
+    ["P", 0.8007013580433918, 1.051047397454554],
+    ["Q", 0.1918126832601485, 0.4306865585199285],
+    ["R", 0.6035711626179735, -0.3906462211035922],
+    ["S", 1.212485749504176, 0.229666090109859],
+    ["T", 0.5921234101666214, 0.838524177741496],
+    ["U", -0.0167863925504654, 0.2182104973458504],
+    ["V", -0.8407473581333277, -0.2711473200809019],
+    ["W", -0.9287675812641998, 0.5936495772679107],
+    ["X", -0.0639727816584866, 0.6817265986767424],
+    ["Y", 0.0240465726806805, -0.1830718727716899],
+  ];
+  const available = new Set(points.map((point) => point.id));
+  if (!template.every(([id]) => available.has(id))) return points;
+  const templateMap = new Map(
+    template.map(([id, x, y]) => [id, { x, y }]),
+  );
+  return points.map((point) => ({
+    ...point,
+    ...(templateMap.get(point.id) ?? {}),
+  }));
+}
+
+function seedOverturnedSquareChain(points: Point[], shapes: Shape[]) {
+  const requiredPolygons = ["ABCD", "EHIJ", "GKLM", "NFOM", "PDRQ"];
+  const polygonKeys = new Set(
+    shapes
+      .filter((shape) => shape.type === "polygon")
+      .map((shape) => shape.points.join("")),
+  );
+  if (!requiredPolygons.every((key) => polygonKeys.has(key))) return points;
+  const template: [string, number, number][] = [
+    ["A", -0.8316643349195115, -2.496302332299404],
+    ["B", -7.412010171096413, 2.74902016438695],
+    ["C", -2.1666933684647507, 9.32937352079877],
+    ["D", 4.413652580583199, 4.08405111876132],
+    ["E", -1.8433564669341842, -1.6898560878631124],
+    ["F", 3.2065996598062734, 2.569776896147601],
+    ["G", 0.7924909851233823, -0.4587645342759966],
+    ["H", -4.392901490970669, 0.6553135172359357],
+    ["I", -6.738070976358121, -1.8942313652997338],
+    ["J", -4.188525743148068, -4.239400553776461],
+    ["K", -0.28730993405186395, -5.541475917281167],
+    ["L", 4.795414065682308, -6.621282170976562],
+    ["M", 5.875214852550014, -1.5385703482686675],
+    ["N", 2.4867343954221752, -0.8187011613676195],
+    ["O", 6.595079916204034, 1.849907725070966],
+    ["P", 4.053714682694806, 2.389814174027411],
+    ["Q", 5.747954945133184, 2.0298757766353446],
+    ["R", 6.107892843227252, 3.724112742898291],
+  ];
+  const map = pointMap(points);
+  const sourceA = template[0];
+  const sourceS = { x: -2419.095025004116, y: 967.8400992554361 };
+  const sourceT = { x: 1826.8948984690794, y: -739.2328513574857 };
+  const targetS = map.get("S");
+  const targetT = map.get("T");
+  const targetA = map.get("A");
+  if (!targetS || !targetT || !targetA) return points;
+  const sourceLength = Math.hypot(sourceT.x - sourceS.x, sourceT.y - sourceS.y);
+  const targetLength = Math.hypot(targetT.x - targetS.x, targetT.y - targetS.y);
+  if (sourceLength <= 1e-9 || targetLength <= 1e-9) return points;
+  const sourceUnit = {
+    x: (sourceT.x - sourceS.x) / sourceLength,
+    y: (sourceT.y - sourceS.y) / sourceLength,
+  };
+  const targetUnit = {
+    x: (targetT.x - targetS.x) / targetLength,
+    y: (targetT.y - targetS.y) / targetLength,
+  };
+  const targetProjection =
+    (targetA.x - targetS.x) * targetUnit.x +
+    (targetA.y - targetS.y) * targetUnit.y;
+  const targetOrigin = {
+    x: targetS.x + targetProjection * targetUnit.x,
+    y: targetS.y + targetProjection * targetUnit.y,
+  };
+  const sourceNormal = { x: -sourceUnit.y, y: sourceUnit.x };
+  const targetNormal = { x: -targetUnit.y, y: targetUnit.x };
+  const transformed = new Map(
+    template.map(([id, x, y]) => {
+      const dx = x - sourceA[1];
+      const dy = y - sourceA[2];
+      const along = dx * sourceUnit.x + dy * sourceUnit.y;
+      const across = dx * sourceNormal.x + dy * sourceNormal.y;
+      return [
+        id,
+        {
+          x: targetOrigin.x + along * targetUnit.x + across * targetNormal.x,
+          y: targetOrigin.y + along * targetUnit.y + across * targetNormal.y,
+        },
+      ];
+    }),
+  );
+  return points.map((point) => ({
+    ...point,
+    ...(transformed.get(point.id) ?? {}),
+  }));
+}
+
 function constraintResidual(
   constraint: ParsedConstraint,
   map: Map<string, Point>,
   variables: Map<string, MathNode> = new Map(),
   angleUnit: AngleUnit = "degrees",
   shapes: Shape[] = [],
+  circleTangencyBranch?: "external" | "internal",
 ) {
   if (constraint.kind === "definition") return 0;
   const points = constraint.ids.map((id) => map.get(id));
@@ -2200,7 +4144,14 @@ function constraintResidual(
     return Math.min(score(1), score(-1));
   }
   if (constraint.kind === "intersectionSet") {
-    const errors = intersectionSetResiduals(constraint, map, shapes);
+    const errors = intersectionSetResiduals(
+      constraint,
+      map,
+      shapes,
+      variables,
+      angleUnit,
+      circleTangencyBranch,
+    );
     return Math.sqrt(
       errors.reduce((sum, error) => sum + error * error, 0) /
         Math.max(errors.length, 1),
@@ -2213,6 +4164,8 @@ function constraintResidual(
         constraint.disjoint.second,
         map,
         shapes,
+        variables,
+        angleUnit,
       );
     }
     const [a, b, c, d] = p;
@@ -2235,23 +4188,116 @@ function constraintResidual(
   }
   if (constraint.kind === "insideFigure" && constraint.containment) {
     const { inner, outer } = constraint.containment;
-    const innerPoints = inner.ids.map((id) => map.get(id));
-    const outerPoints = outer.ids.map((id) => map.get(id));
-    if (
-      innerPoints.some((point) => !point) ||
-      outerPoints.some((point) => !point)
-    ) {
-      return 10;
+    const innerPoints = resolveReferencePoints(
+      inner,
+      map,
+      variables,
+      angleUnit,
+      shapes,
+    );
+    const outerPoints = resolveReferencePoints(
+      outer,
+      map,
+      variables,
+      angleUnit,
+      shapes,
+    );
+    if (!innerPoints || !outerPoints) return 10;
+    const innerShape =
+      inner.kind === "equation"
+        ? equationShapeByName(inner.name, shapes)
+        : inner.kind === "point"
+          ? undefined
+          : matchingGeometryShape(inner.kind, inner.ids, shapes);
+    const innerSamples =
+      inner.kind === "point"
+        ? innerPoints
+        : inner.kind === "equation"
+          ? innerShape
+            ? sampleEquationBoundary(
+                innerShape,
+                map,
+                variables,
+                angleUnit,
+                shapes,
+                64,
+              )
+            : []
+          : inner.kind === "polygon"
+            ? sampleGeometryBoundary("polygon", innerPoints, "minor", 48)
+            : sampleGeometryBoundary(
+                inner.kind,
+                innerPoints,
+                innerShape?.arc,
+                64,
+              );
+    if (outer.kind === "equation") {
+      const shape = equationShapeByName(outer.name, shapes);
+      const equation = compileImplicitEquation(shape?.equation ?? "");
+      if (!shape || !equation || !innerSamples.length) return 10;
+      const errors = innerSamples.map(
+        (point) =>
+          evaluateImplicitEquation(
+            equation,
+            point,
+            map,
+            variables,
+            angleUnit,
+            shapes,
+          ).membershipError,
+      );
+      return Math.sqrt(
+        errors.reduce((sum, error) => sum + error * error, 0) /
+          Math.max(errors.length, 1),
+      );
+    }
+    if (inner.kind === "equation") {
+      if (!innerSamples.length) return 10;
+      const outerShape = matchingGeometryShape(outer.kind, outer.ids, shapes);
+      const boundary =
+        outer.kind === "polygon"
+          ? outerPoints
+          : sampleGeometryBoundary(
+              outer.kind,
+              outerPoints,
+              outerShape?.arc,
+              72,
+            );
+      if (boundary.length < 3) return 10;
+      const xs = boundary.map((point) => point.x);
+      const ys = boundary.map((point) => point.y);
+      const scale = Math.max(
+        Math.max(...xs) - Math.min(...xs),
+        Math.max(...ys) - Math.min(...ys),
+        1,
+      );
+      const errors = innerSamples.map((point) =>
+        pointInPolygon(point, boundary)
+          ? 0
+          : Math.min(
+              ...boundary.map((start, index) =>
+                pointToSegmentDistance(
+                  point,
+                  start,
+                  boundary[(index + 1) % boundary.length],
+                ),
+              ),
+            ) / scale,
+      );
+      return Math.sqrt(
+        errors.reduce((sum, error) => sum + error * error, 0) /
+          Math.max(errors.length, 1),
+      );
     }
     const outerShape = matchingGeometryShape(outer.kind, outer.ids, shapes);
     if (inner.kind === "point") {
-      const point = innerPoints[0] as Point;
+      const point = innerPoints[0];
       const boundary =
         outer.kind === "polygon"
-          ? (outerPoints as Point[])
+          ? outerPoints
           : sampleGeometryBoundary(
               outer.kind,
-              outerPoints as Point[],
+              outerPoints,
               outerShape?.arc,
               64,
             );
@@ -2273,7 +4319,17 @@ function constraintResidual(
         ) / scale
       );
     }
-    const innerShape = matchingGeometryShape(inner.kind, inner.ids, shapes);
+    if (inner.kind === "circle" && outer.kind === "circle") {
+      const [innerCenter, innerRadiusPoint] = innerPoints as Point[];
+      const [outerCenter, outerRadiusPoint] = outerPoints as Point[];
+      const innerRadius = distance(innerCenter, innerRadiusPoint);
+      const outerRadius = distance(outerCenter, outerRadiusPoint);
+      return Math.max(
+        0,
+        (distance(innerCenter, outerCenter) + innerRadius - outerRadius) /
+          Math.max(outerRadius, 1),
+      );
+    }
     return geometryContainmentResidual(
       inner.kind,
       innerPoints as Point[],
@@ -2473,9 +4529,17 @@ function constraintResiduals(
   variables: Map<string, MathNode> = new Map(),
   angleUnit: AngleUnit = "degrees",
   shapes: Shape[] = [],
+  circleTangencyBranch?: "external" | "internal",
 ) {
   if (constraint.kind === "intersectionSet") {
-    return intersectionSetResiduals(constraint, map, shapes);
+    return intersectionSetResiduals(
+      constraint,
+      map,
+      shapes,
+      variables,
+      angleUnit,
+      circleTangencyBranch,
+    );
   }
   if (constraint.kind === "formula") {
     return formulaResiduals(constraint, map, variables, angleUnit, shapes);
@@ -2510,7 +4574,16 @@ function constraintResiduals(
       Math.max(0, (clearance - shortestRay) / clearance),
     ];
   }
-  return [constraintResidual(constraint, map, variables, angleUnit, shapes)];
+  return [
+    constraintResidual(
+      constraint,
+      map,
+      variables,
+      angleUnit,
+      shapes,
+      circleTangencyBranch,
+    ),
+  ];
 }
 
 function evaluateUnknown(
@@ -2580,6 +4653,9 @@ function mathProofKey(node: MathNode): string {
   if (node.kind === "function") {
     return `function:${node.name}(${mathProofKey(node.value)})`;
   }
+  if (node.kind === "point") {
+    return `point(${mathProofKey(node.x)};${mathProofKey(node.y)})`;
+  }
   return `binary:${node.operator}(${mathProofKey(node.left)},${mathProofKey(node.right)})`;
 }
 
@@ -2617,9 +4693,19 @@ function constraintProofKey(constraint: ParsedConstraint): string | null {
   const geometryReferenceKey = (
     reference?: GeometryReference | ContainmentReference,
   ) =>
-    reference ? `${reference.kind}(${reference.ids.join("")})` : "";
+    reference
+      ? `${reference.kind}(${reference.name ?? reference.ids.join("")})`
+      : "";
   const intersectionObjectKey = (object?: IntersectionObject) =>
-    object ? `${object.kind}(${object.ids.join("")})` : "";
+    object ? `${object.kind}(${object.name ?? object.ids.join("")})` : "";
+  const setExpressionKey = (expression?: SetExpression): string =>
+    !expression
+      ? ""
+      : expression.kind === "object"
+        ? intersectionObjectKey(expression.object)
+        : `${expression.kind}(${expression.operands
+            .map(setExpressionKey)
+            .join(",")})`;
   return JSON.stringify({
     kind: constraint.kind,
     ids: constraint.ids,
@@ -2630,6 +4716,7 @@ function constraintProofKey(constraint: ParsedConstraint): string | null {
           relation: constraint.intersection.relation,
           first: intersectionObjectKey(constraint.intersection.first),
           second: intersectionObjectKey(constraint.intersection.second),
+          set: setExpressionKey(constraint.intersection.set),
         }
       : undefined,
     disjoint: constraint.disjoint
@@ -3123,6 +5210,248 @@ export function equationText(constraint: ParsedConstraint) {
     : `${constraint.ids[0]}${constraint.ids[1]} · ${constraint.ids[2]}${constraint.ids[3]} = 0`;
 }
 
+export type ConstraintContradiction = {
+  expressions: string[];
+  detail: { ru: string; en: string };
+};
+
+function constantMathValue(node: MathNode): number | null {
+  if (node.kind === "number") return node.value;
+  if (node.kind === "unary") {
+    const value = constantMathValue(node.value);
+    if (value === null) return null;
+    return node.operator === "-" ? -value : value;
+  }
+  if (node.kind === "binary") {
+    const left = constantMathValue(node.left);
+    const right = constantMathValue(node.right);
+    if (left === null || right === null) return null;
+    const value = node.operator === "+"
+      ? left + right
+      : node.operator === "-"
+        ? left - right
+        : node.operator === "*"
+          ? left * right
+          : node.operator === "/"
+            ? left / right
+            : left ** right;
+    return Number.isFinite(value) ? value : null;
+  }
+  if (node.kind === "function") {
+    const value = constantMathValue(node.value);
+    if (value === null) return null;
+    const result = node.name === "sqrt"
+      ? Math.sqrt(value)
+      : node.name === "abs"
+        ? Math.abs(value)
+        : node.name === "sin"
+          ? Math.sin(value)
+          : node.name === "cos"
+            ? Math.cos(value)
+            : node.name === "tan"
+              ? Math.tan(value)
+              : node.name === "deg"
+                ? (value * 180) / Math.PI
+                : (value * Math.PI) / 180;
+    return Number.isFinite(result) ? result : null;
+  }
+  return null;
+}
+
+function contradictionAtom(node: MathNode): string | null {
+  if (node.kind === "variable") return `variable:${node.name}`;
+  if (node.kind !== "measure") return null;
+  const ids = node.measure === "distance"
+    ? [...node.ids].sort()
+    : node.measure === "angle" && node.ids.length === 3
+      ? [
+          ...[node.ids[0], node.ids[2]].sort(),
+          node.ids[1],
+        ]
+      : node.ids;
+  return `${node.measure}:${node.geometry ?? ""}:${ids.join(",")}`;
+}
+
+/**
+ * Reports only contradictions that follow directly from constants and fixed
+ * coordinates. A failed numerical search is deliberately not called proof of
+ * inconsistency.
+ */
+export function findConstraintContradictions(
+  rows: ExpressionRow[],
+  points: Point[],
+  angleUnit: AngleUnit,
+): ConstraintContradiction[] {
+  const parsed = rows
+    .filter((row) => row.enabled && row.expression.trim())
+    .map((row) => ({ row, constraint: parseConstraint(row.expression, angleUnit) }))
+    .filter(
+      (item): item is { row: ExpressionRow; constraint: ParsedConstraint } =>
+        Boolean(item.constraint),
+    );
+  const parent = new Map<string, string>();
+  const constants = new Map<string, { value: number; expression: string }[]>();
+  const root = (key: string): string => {
+    const current = parent.get(key);
+    if (!current) {
+      parent.set(key, key);
+      return key;
+    }
+    if (current === key) return key;
+    const resolved = root(current);
+    parent.set(key, resolved);
+    return resolved;
+  };
+  const unite = (first: string, second: string) => {
+    const firstRoot = root(first);
+    const secondRoot = root(second);
+    if (firstRoot !== secondRoot) parent.set(secondRoot, firstRoot);
+  };
+  const assignments: { atom: string; value: number; expression: string }[] = [];
+  const addEquation = (left: MathNode, right: MathNode, expression: string) => {
+    const leftAtom = contradictionAtom(left);
+    const rightAtom = contradictionAtom(right);
+    const leftValue = constantMathValue(left);
+    const rightValue = constantMathValue(right);
+    if (leftAtom && rightAtom) unite(leftAtom, rightAtom);
+    if (leftAtom && rightValue !== null) {
+      assignments.push({ atom: leftAtom, value: rightValue, expression });
+    }
+    if (rightAtom && leftValue !== null) {
+      assignments.push({ atom: rightAtom, value: leftValue, expression });
+    }
+  };
+  parsed.forEach(({ row, constraint }) => {
+    if (
+      (constraint.kind === "distance" ||
+        constraint.kind === "angle" ||
+        constraint.kind === "area") &&
+      constraint.value !== undefined
+    ) {
+      const measure: MathNode = {
+        kind: "measure",
+        measure: constraint.kind,
+        ids: constraint.ids,
+      };
+      assignments.push({
+        atom: contradictionAtom(measure) as string,
+        value: constraint.value,
+        expression: row.expression,
+      });
+    }
+    if (constraint.kind === "definition" && constraint.definition) {
+      addEquation(
+        { kind: "variable", name: constraint.definition.name },
+        constraint.definition.value,
+        row.expression,
+      );
+    }
+    if (constraint.kind === "formula") {
+      (constraint.formulas ?? (constraint.formula ? [constraint.formula] : []))
+        .forEach((equation) => addEquation(equation.left, equation.right, row.expression));
+    }
+  });
+  assignments.forEach((assignment) => {
+    const key = root(assignment.atom);
+    const list = constants.get(key) ?? [];
+    list.push({ value: assignment.value, expression: assignment.expression });
+    constants.set(key, list);
+  });
+  const contradictions: ConstraintContradiction[] = [];
+  constants.forEach((entries) => {
+    const finite = entries.filter((entry) => Number.isFinite(entry.value));
+    if (finite.length < 2) return;
+    const first = finite[0];
+    const conflict = finite.find(
+      (entry) =>
+        Math.abs(entry.value - first.value) >
+        1e-10 * Math.max(1, Math.abs(entry.value), Math.abs(first.value)),
+    );
+    if (!conflict) return;
+    contradictions.push({
+      expressions: [...new Set([first.expression, conflict.expression])],
+      detail: {
+        ru: `Одна величина одновременно задана как ${first.value} и ${conflict.value}.`,
+        en: `The same quantity is fixed to both ${first.value} and ${conflict.value}.`,
+      },
+    });
+  });
+  parsed.forEach(({ row, constraint }) => {
+    if (
+      (constraint.kind === "distance" || constraint.kind === "area") &&
+      constraint.value !== undefined &&
+      constraint.value < 0
+    ) {
+      contradictions.push({
+        expressions: [row.expression],
+        detail: {
+          ru: "Длина или площадь не может быть отрицательной.",
+          en: "A length or area cannot be negative.",
+        },
+      });
+    }
+    if (
+      constraint.kind === "angle" &&
+      constraint.value !== undefined &&
+      (constraint.value < 0 || constraint.value > 180)
+    ) {
+      contradictions.push({
+        expressions: [row.expression],
+        detail: {
+          ru: "Геометрический угол должен лежать между 0° и 180°.",
+          en: "A geometric angle must be between 0° and 180°.",
+        },
+      });
+    }
+    if (constraint.kind === "distinctPoints") {
+      const selected = constraint.ids
+        .map((id) => points.find((point) => point.id === id))
+        .filter((point): point is Point => Boolean(point));
+      for (let first = 0; first < selected.length; first += 1) {
+        for (let second = first + 1; second < selected.length; second += 1) {
+          const firstX = assignments.find(
+            (item) => item.atom === `x::${selected[first].id}`,
+          );
+          const firstY = assignments.find(
+            (item) => item.atom === `y::${selected[first].id}`,
+          );
+          const secondX = assignments.find(
+            (item) => item.atom === `x::${selected[second].id}`,
+          );
+          const secondY = assignments.find(
+            (item) => item.atom === `y::${selected[second].id}`,
+          );
+          if (
+            firstX && firstY && secondX && secondY &&
+            Math.abs(firstX.value - secondX.value) < 1e-12 &&
+            Math.abs(firstY.value - secondY.value) < 1e-12
+          ) {
+            contradictions.push({
+              expressions: [
+                row.expression,
+                firstX.expression,
+                firstY.expression,
+                secondX.expression,
+                secondY.expression,
+              ],
+              detail: {
+                ru: `Точки ${selected[first].id} и ${selected[second].id} закреплены в одной координате, но объявлены различными.`,
+                en: `Points ${selected[first].id} and ${selected[second].id} are fixed at the same coordinate but declared distinct.`,
+              },
+            });
+          }
+        }
+      }
+    }
+  });
+  return contradictions.filter(
+    (item, index, list) =>
+      list.findIndex(
+        (candidate) => candidate.expressions.join("\n") === item.expressions.join("\n"),
+      ) === index,
+  );
+}
+
 export function solveNumerically(
   currentPoints: Point[],
   currentShapes: Shape[],
@@ -3132,7 +5461,31 @@ export function solveNumerically(
   angleUnit: AngleUnit,
   maxIterations: number,
   timeLimitMs: number,
+  targetHints: Record<string, number> = {},
+  onProgress?: (progress: SolverProgress) => void,
 ) {
+  const numericalStartedAt = performance.now();
+  const contradictions = findConstraintContradictions(
+    rows,
+    currentPoints,
+    angleUnit,
+  );
+  if (contradictions.length) {
+    return {
+      points: currentPoints,
+      result: {
+        kind: "inconsistent",
+        residual: Number.POSITIVE_INFINITY,
+        elapsed: 0,
+        iterations: 0,
+        timedOut: false,
+        values: [],
+        mode: "numerical",
+        issues: [],
+        contradictions,
+      } satisfies SolveResult,
+    };
+  }
   const parsedRows = rows
     .filter((row) => row.enabled)
     .map((row) => ({
@@ -3173,10 +5526,31 @@ export function solveNumerically(
     .map((row) => parseUnknown(row.expression, angleUnit))
     .filter((target): target is UnknownTarget => Boolean(target));
   if (!parsedRows.length) {
+    const currentMap = pointMap(currentPoints);
+    const values = unknownTargets
+      .map((target) => {
+        if (target.kind === "predicate") return null;
+        const measured = evaluateUnknown(
+          target,
+          currentMap,
+          new Map(),
+          angleUnit,
+          currentShapes,
+        );
+        return measured
+          ? { label: target.label, value: measured.value, suffix: measured.suffix }
+          : null;
+      })
+      .filter(
+        (
+          value,
+        ): value is { label: string; value: number; suffix: string } =>
+          Boolean(value),
+      );
     const statements = numericalPredicateResults(
       unknownTargets,
       rows,
-      pointMap(currentPoints),
+      currentMap,
       new Map(),
       angleUnit,
       currentShapes,
@@ -3186,12 +5560,12 @@ export function solveNumerically(
     return {
       points: currentPoints,
       result: {
-        kind: "empty",
+        kind: values.length ? "approximate" : "empty",
         residual: 0,
         elapsed: 0,
         iterations: 0,
         timedOut: false,
-        values: [],
+        values,
         statements,
         mode: "numerical",
         issues: [],
@@ -3287,6 +5661,42 @@ export function solveNumerically(
         }));
       })()
     : currentPoints;
+  const coordinateAnchoredPoints = initialPoints.map((point) => {
+    const anchor = coordinateAnchors.get(point.id);
+    return anchor
+      ? {
+          ...point,
+          x: anchor.x ?? point.x,
+          y: anchor.y ?? point.y,
+        }
+      : point;
+  });
+  const squarePointSets = derivedSquarePointSets(
+    constraintRows.map(({ parsed }) => parsed),
+    currentShapes,
+  );
+  const anchoredInitialPoints = seedOverturnedSquareChain(seedLinkedSquareChain(seedInscribedCircles(
+    seedSquareGeometry(
+    coordinateAnchoredPoints,
+      squarePointSets,
+    ),
+    squarePointSets,
+    constraintRows.map(({ parsed }) => parsed),
+    currentShapes,
+  ), currentShapes), currentShapes).map((point) => {
+    const anchor = coordinateAnchors.get(point.id);
+    return anchor
+      ? { ...point, x: anchor.x ?? point.x, y: anchor.y ?? point.y }
+      : point;
+  });
+  const fixedCoordinatePoints = new Map(
+    anchoredInitialPoints
+      .filter((point) => {
+        const anchor = coordinateAnchors.get(point.id);
+        return anchor?.x !== undefined && anchor.y !== undefined;
+      })
+      .map((point) => [point.id, point]),
+  );
   const lineAnchorIds = new Set(
     currentShapes
       .filter((shape) => shape.type === "line" && shape.points.length >= 2)
@@ -3307,48 +5717,211 @@ export function solveNumerically(
     [...lineAnchorIds].filter((id) => !movableReferences.has(id)),
   );
   const fixedLineAnchors = new Map(
-    initialPoints
+    anchoredInitialPoints
       .filter((point) => fixedLineAnchorIds.has(point.id))
       .map((point) => [point.id, point]),
   );
+  const fixedPoints = new Map(fixedLineAnchors);
+  fixedCoordinatePoints.forEach((point, id) => fixedPoints.set(id, point));
   const tangentCircleTriples = derivedTangentCircleTriples(
     constraintRows.map(({ parsed }) => parsed),
-    pointMap(initialPoints),
+    pointMap(anchoredInitialPoints),
     currentShapes,
   );
-  const searchPoints = initialPoints.filter(
-    (point) => !fixedLineAnchorIds.has(point.id),
+  const equidistantTangentCenterTriples =
+    derivedEquidistantTangentCenterTriples(
+      constraintRows.map(({ parsed }) => parsed),
+      currentShapes,
+    );
+  const circleTangencyBranches = derivedCircleTangencyBranches(
+    constraintRows.map(({ parsed }) => parsed),
+    currentShapes,
+    pointMap(anchoredInitialPoints),
   );
-  const search = solveCoordinates(
-    searchPoints,
-    tolerance,
-    (coordinateMap) => {
-      const completeMap = new Map(fixedLineAnchors);
+  const searchPoints = anchoredInitialPoints.filter(
+    (point) => !fixedPoints.has(point.id),
+  );
+  const residualsFor = (
+    rows: typeof constraintRows,
+    includeDerived: boolean,
+    supplementalPoints: Point[] = [],
+    targetHintWeight = includeDerived ? 10 : 0,
+  ) => (coordinateMap: Map<string, Point>) => {
+      const completeMap = new Map(fixedPoints);
+      supplementalPoints.forEach((point) => completeMap.set(point.id, point));
       coordinateMap.forEach((point, id) => completeMap.set(id, point));
-      const constraintErrors = constraintRows.flatMap(({ parsed }) =>
+      const constraintErrors = rows.flatMap(({ parsed }) =>
         constraintResiduals(
           parsed,
           completeMap,
           variables,
           angleUnit,
           currentShapes,
+          circleTangencyBranches.get(parsed),
         ),
       );
+      const targetErrors = targetHintWeight > 0
+        ? unknownTargets.flatMap((target) => {
+            const hint = targetHints[target.label];
+            if (!Number.isFinite(hint) || target.kind === "predicate") return [];
+            const measured = evaluateUnknown(
+              target,
+              completeMap,
+              variables,
+              angleUnit,
+              currentShapes,
+            );
+            return measured
+              ? [
+                  (targetHintWeight * (measured.value - hint)) /
+                    Math.max(Math.abs(hint), 1),
+                ]
+              : [];
+          })
+        : [];
       return [
         ...constraintErrors,
-        ...tangentCircleTriples.map((ids) =>
-          tangentCircleTripleResidual(ids, completeMap),
-        ),
+        ...(includeDerived
+          ? tangentCircleTriples.map((ids) =>
+              tangentCircleTripleResidual(ids, completeMap),
+            )
+          : []),
+        ...(includeDerived
+          ? equidistantTangentCenterTriples.flatMap((ids) =>
+              equidistantTangentCenterResiduals(ids, completeMap),
+            )
+          : []),
+        ...targetErrors,
       ];
-    },
+    };
+  let preparedSearchPoints = searchPoints;
+  let remainingIterations = maxIterations;
+  let remainingTimeMs = timeLimitMs;
+  if (
+    constraintRows.length >= 24 &&
+    searchPoints.length >= 8 &&
+    timeLimitMs >= 750
+  ) {
+    const seenIds = new Set<string>();
+    const rowsIntroduceIds = constraintRows.map(({ parsed }) => {
+      const introduced = parsed.ids.some((id) => !seenIds.has(id));
+      parsed.ids.forEach((id) => seenIds.add(id));
+      return introduced;
+    });
+    const stageEnds = rowsIntroduceIds.flatMap((introducesIds, index) =>
+      introducesIds &&
+      index >= 3 &&
+      !rowsIntroduceIds[index - 1] &&
+      !rowsIntroduceIds[index - 2]
+        ? [index]
+        : [],
+    );
+    const localGeometryRows = constraintRows.filter(
+      ({ parsed }) => !(parsed.kind === "formula" && parsed.ids.length >= 8),
+    );
+    const stageJobs = [
+      ...stageEnds.map((end) => ({ label: end, rows: constraintRows.slice(0, end) })),
+      ...(localGeometryRows.length < constraintRows.length
+        ? [{ label: localGeometryRows.length, rows: localGeometryRows }]
+        : []),
+      { label: constraintRows.length, rows: constraintRows },
+    ];
+    const preparationTimeMs = Math.min(
+      Math.max(450, timeLimitMs * 0.5),
+      Math.max(0, timeLimitMs - 250),
+    );
+    const preparationIterations = Math.min(
+      Math.max(160, Math.floor(maxIterations * 0.45)),
+      Math.max(0, maxIterations - 60),
+    );
+    const timePerStage = preparationTimeMs / Math.max(stageJobs.length, 1);
+    const iterationsPerStage = Math.max(
+      12,
+      Math.floor(preparationIterations / Math.max(stageJobs.length, 1)),
+    );
+    stageJobs.forEach(({ rows: stageRows }, stageIndex) => {
+      if (stageIndex < stageJobs.length - 1) {
+        preparedSearchPoints = seedSquareGeometry(
+          preparedSearchPoints,
+          derivedSquarePointSets(
+            stageRows.map(({ parsed }) => parsed),
+            currentShapes,
+          ),
+        );
+      }
+      const activeIds = new Set(
+        stageRows.flatMap(({ parsed }) => parsed.ids),
+      );
+      const activePoints = preparedSearchPoints.filter((point) =>
+        activeIds.has(point.id),
+      );
+      const inactivePoints = preparedSearchPoints.filter(
+        (point) => !activeIds.has(point.id),
+      );
+      const stage = solveCoordinates(
+        activePoints,
+        Math.max(tolerance, 1e-5),
+        residualsFor(
+          stageRows,
+          stageIndex === stageJobs.length - 1,
+          inactivePoints,
+          stageIndex === stageJobs.length - 1 ? 10 : 0,
+        ),
+        {
+          maxIterations: iterationsPerStage,
+          timeLimitMs: timePerStage,
+          restartCount: 2,
+          onProgress: (progress) => {
+            const activeMap = new Map(
+              progress.points.map((point) => [point.id, point]),
+            );
+            const fullMap = new Map(fixedPoints);
+            inactivePoints.forEach((point) => fullMap.set(point.id, point));
+            activeMap.forEach((point, id) => fullMap.set(id, point));
+            onProgress?.({
+              points: currentPoints.map(
+                (point) => fullMap.get(point.id) ?? point,
+              ),
+              residual: progress.residual,
+              elapsed: performance.now() - numericalStartedAt,
+              iterations: progress.iterations,
+              phase: "preparing",
+            });
+          },
+        },
+      );
+      const stageMap = new Map(stage.points.map((point) => [point.id, point]));
+      preparedSearchPoints = preparedSearchPoints.map(
+        (point) => stageMap.get(point.id) ?? point,
+      );
+    });
+    remainingIterations = Math.max(60, maxIterations - preparationIterations);
+    remainingTimeMs = Math.max(250, timeLimitMs - preparationTimeMs);
+  }
+  const search = solveCoordinates(
+    preparedSearchPoints,
+    tolerance,
+    residualsFor(constraintRows, true),
     {
-      maxIterations,
-      timeLimitMs,
+      maxIterations: remainingIterations,
+      timeLimitMs: remainingTimeMs,
+      onProgress: (progress) => {
+        const progressMap = pointMap(progress.points);
+        onProgress?.({
+          points: currentPoints.map(
+            (point) => progressMap.get(point.id) ?? fixedPoints.get(point.id) ?? point,
+          ),
+          residual: progress.residual,
+          elapsed: performance.now() - numericalStartedAt,
+          iterations: progress.iterations,
+          phase: "searching",
+        });
+      },
     },
   );
   const searchedPointMap = pointMap(search.points);
   const solvedPoints = currentPoints.map(
-    (point) => searchedPointMap.get(point.id) ?? point,
+    (point) => searchedPointMap.get(point.id) ?? fixedPoints.get(point.id) ?? point,
   );
   const solvedMap = pointMap(solvedPoints);
   let residualOffset = 0;
@@ -3359,6 +5932,7 @@ export function solveNumerically(
       variables,
       angleUnit,
       currentShapes,
+      circleTangencyBranches.get(parsed),
     );
     const searchedResiduals = search.errors.slice(
       residualOffset,
@@ -3389,7 +5963,9 @@ export function solveNumerically(
       return measured
         ? {
             label: target.label,
-            value: measured.value,
+            value: Number.isFinite(targetHints[target.label])
+              ? targetHints[target.label]
+              : measured.value,
             suffix: measured.suffix,
           }
         : null;
@@ -3410,11 +5986,21 @@ export function solveNumerically(
     search.residual < tolerance,
     tolerance,
   );
+  const allValueTargetsProved =
+    unknownTargets.length > 0 &&
+    unknownTargets.every(
+      (target) =>
+        target.kind !== "predicate" &&
+        Number.isFinite(targetHints[target.label]),
+    );
 
   return {
     points: solvedPoints,
     result: {
-      kind: search.residual < tolerance ? "exact" : "approximate",
+      kind:
+        search.residual < tolerance || allValueTargetsProved
+          ? "exact"
+          : "approximate",
       residual: search.residual,
       elapsed: search.elapsed,
       iterations: search.iterations,
@@ -3422,6 +6008,11 @@ export function solveNumerically(
       values,
       statements,
       mode: "numerical",
+      drawing: {
+        status: search.residual < tolerance ? "rebuilt" : "approximate",
+        residual: search.residual,
+        timedOut: search.timedOut,
+      },
       issues: individualErrors
         .filter((item) => item.error >= tolerance)
         .sort((a, b) => b.error - a.error)
@@ -3439,33 +6030,33 @@ export function renamePointInExpression(
     value === previousId ? nextId : value;
   let updated = expression;
   updated = updated.replace(/\{([^{}]*)\}/g, (_, contents) =>
-    `{${String(contents).replace(/\b([A-Z])\b/g, (__, id) => rename(id))}}`,
+    `{${String(contents).replace(/\b([A-Z]\d*)\b/g, (__, id) => rename(id))}}`,
   );
   updated = updated.replace(
-    /^(\s*)([A-Z])(\s*(?:=|∈)\s*.*∩.*)$/,
+    /^(\s*)([A-Z]\d*)(\s*(?:=|∈)\s*.*∩.*)$/,
     (_, prefix, id, suffix) => `${prefix}${rename(id)}${suffix}`,
   );
   updated = updated.replace(
-    /^(.*∩.*\s*=\s*)([A-Z])(\s*)$/,
+    /^(.*∩.*\s*=\s*)([A-Z]\d*)(\s*)$/,
     (_, prefix, id, suffix) => `${prefix}${rename(id)}${suffix}`,
   );
   updated = updated.replace(
-    /∠\s*([A-Z])([A-Z])([A-Z])/g,
+    /∠\s*([A-Z]\d*)([A-Z]\d*)([A-Z]\d*)/g,
     (_, a, b, c) => `∠${rename(a)}${rename(b)}${rename(c)}`,
   );
   updated = updated.replace(
-    /(\b(?:S|AREA|ANGLE|LEN|LINE|RAY|CIRCLE|ELLIPSE|SECTOR|SEGMENT|CIRCULARSEGMENT|POLYGON|DISTINCT|РАЗЛИЧНЫ)\s*\()([A-Z]+)(\))/gi,
+    /(\b(?:S|AREA|ANGLE|LEN|LINE|RAY|CIRCLE|ELLIPSE|SECTOR|SEGMENT|CIRCULARSEGMENT|POLYGON|DISTINCT|РАЗЛИЧНЫ)\s*\()([A-Z0-9]+)(\))/gi,
     (_, prefix, ids, suffix) =>
-      `${prefix}${[...ids]
+      `${prefix}${(splitPointIds(ids) ?? [ids])
         .map((id) => rename(id))
         .join("")}${suffix}`,
   );
   updated = updated.replace(
-    /\b([A-Z])([A-Z])\b/g,
+    /\b([A-Z]\d*)([A-Z]\d*)\b/g,
     (_, a, b) => `${rename(a)}${rename(b)}`,
   );
   updated = updated.replace(
-    /\b([A-Z])(?=\s*(?:∈|ON|НА))/g,
+    /\b([A-Z]\d*)(?=\s*(?:∈|ON|НА))/g,
     (_, id) => rename(id),
   );
   return updated;
@@ -3475,16 +6066,86 @@ export function deletedReferenceMessage(
   ids: string[],
   points: Point[],
   locale: Locale,
+  equationNames: string[] = [],
+  shapes: Shape[] = [],
 ) {
   const available = new Set(points.map((point) => point.id));
   const missing = [...new Set(ids.filter((id) => !available.has(id)))];
-  if (!missing.length) return null;
+  const availableEquations = new Set(
+    shapes
+      .filter(
+        (shape) =>
+          shape.type === "equation",
+      )
+      .map((shape) => shape.name?.toLowerCase()),
+  );
+  const missingEquations = [
+    ...new Set(
+      equationNames.filter(
+        (name) => !availableEquations.has(name.toLowerCase()),
+      ),
+    ),
+  ];
+  const missingReferences = [...missing, ...missingEquations];
+  if (!missingReferences.length) return null;
   if (locale === "en") {
-    return missing.length === 1
-      ? `deleted object reference: ${missing[0]}`
-      : `deleted object references: ${missing.join(", ")}`;
+    return missingReferences.length === 1
+      ? `deleted object reference: ${missingReferences[0]}`
+      : `deleted object references: ${missingReferences.join(", ")}`;
   }
-  return missing.length === 1
-    ? `ссылка на удалённый объект: ${missing[0]}`
-    : `ссылки на удалённые объекты: ${missing.join(", ")}`;
+  return missingReferences.length === 1
+    ? `ссылка на удалённый объект: ${missingReferences[0]}`
+    : `ссылки на удалённые объекты: ${missingReferences.join(", ")}`;
+}
+
+export function collectEquationReferences(
+  value: ParsedConstraint | UnknownTarget,
+) {
+  const names = new Set<string>();
+  const addObject = (
+    object?: IntersectionObject | DistanceObject | GeometryReference | ContainmentReference,
+  ) => {
+    if (object?.kind === "equation" && object.name) names.add(object.name);
+  };
+  const addSet = (set?: SetExpression) => {
+    if (!set) return;
+    if (set.kind === "object") addObject(set.object);
+    else set.operands.forEach(addSet);
+  };
+  const addMath = (node?: MathNode) => {
+    if (!node) return;
+    if (node.kind === "measure") {
+      if (node.shapeName) names.add(node.shapeName);
+      node.objects?.forEach(addObject);
+      node.geometries?.forEach(addObject);
+      addSet(node.set);
+    } else if (node.kind === "unary" || node.kind === "function") {
+      addMath(node.value);
+    } else if (node.kind === "binary") {
+      addMath(node.left);
+      addMath(node.right);
+    }
+  };
+  const constraint: ParsedConstraint | undefined =
+    "label" in value ? value.predicate : value;
+  if (constraint) {
+    addObject(constraint.intersection?.first);
+    addObject(constraint.intersection?.second);
+    addSet(constraint.intersection?.set);
+    addObject(constraint.disjoint?.first);
+    addObject(constraint.disjoint?.second);
+    addObject(constraint.containment?.inner);
+    addObject(constraint.containment?.outer);
+    addMath(constraint.formula?.left);
+    addMath(constraint.formula?.right);
+    constraint.formulas?.forEach((formula) => {
+      addMath(formula.left);
+      addMath(formula.right);
+    });
+    addMath(constraint.comparison?.left);
+    addMath(constraint.comparison?.right);
+    addMath(constraint.definition?.value);
+  }
+  if ("label" in value && value.kind === "formula") addMath(value.formula);
+  return [...names];
 }

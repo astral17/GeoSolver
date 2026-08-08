@@ -13,6 +13,7 @@ const moduleNames = [
   "analytic-solver",
   "project-migrations",
   "project-state",
+  "solver-runner",
 ];
 
 async function loadLocalModule(entry = "expressions") {
@@ -80,6 +81,80 @@ test("keeps rational radicals and pi exact", async () => {
   );
 });
 
+test("reports directly contradictory constraints without guessing from residuals", async () => {
+  const { solveNumerically, findConstraintContradictions } =
+    await loadLocalModule("expressions");
+  const points = [
+    { id: "A", x: 0, y: 0 },
+    { id: "B", x: 2, y: 0 },
+  ];
+  const rows = [
+    { id: 1, expression: "AB = 3", enabled: true, color: "#000" },
+    { id: 2, expression: "AB = 4", enabled: true, color: "#000" },
+  ];
+  const contradictions = findConstraintContradictions(rows, points, "degrees");
+  assert.equal(contradictions.length, 1);
+  assert.deepEqual(contradictions[0].expressions, ["AB = 3", "AB = 4"]);
+  const solved = solveNumerically(
+    points, [], rows, [], 1e-6, "degrees", 1200, 2500,
+  );
+  assert.equal(solved.result.kind, "inconsistent");
+  assert.equal(solved.result.contradictions.length, 1);
+  assert.deepEqual(solved.points, points);
+});
+
+test("merges only solved snapshot coordinates after a worker run", async () => {
+  const { mergeSolvedPointCoordinates } = await loadLocalModule("solver-runner");
+  const current = [
+    { id: "A", x: 0, y: 0 },
+    { id: "NEW", x: 9, y: 8 },
+  ];
+  const merged = mergeSolvedPointCoordinates(current, [
+    { id: "A", x: 3, y: 4 },
+    { id: "DELETED", x: 7, y: 7 },
+  ]);
+  assert.deepEqual(merged, [
+    { id: "A", x: 3, y: 4 },
+    { id: "NEW", x: 9, y: 8 },
+  ]);
+});
+
+test("shares one time budget between analytical hints and numerical search", async () => {
+  const { runSolverRequest } = await loadLocalModule("solver-runner");
+  const points = Array.from({ length: 12 }, (_, index) => ({
+    id: String.fromCharCode(65 + index),
+    x: Math.cos(index) * (index + 1),
+    y: Math.sin(index) * (index + 1),
+  }));
+  const known = points.map((point, index) => ({
+    id: index + 1,
+    expression: `${point.id}${points[(index + 1) % points.length].id} = ${1 + index / 7}`,
+    enabled: true,
+    color: "#000000",
+  }));
+  const startedAt = performance.now();
+  const progress = [];
+  const solved = runSolverRequest(
+    {
+      id: 1,
+      points,
+      shapes: [],
+      known,
+      unknown: [],
+      mode: "numerical",
+      angleUnit: "degrees",
+      tolerance: 1e-12,
+      maxIterations: 100_000,
+      timeLimitMs: 50,
+    },
+    (update) => progress.push(update),
+  );
+  const wallTime = performance.now() - startedAt;
+  assert.ok(wallTime < 250, `wall time ${wallTime} ms`);
+  assert.ok(solved.result.elapsed < 250, `reported ${solved.result.elapsed} ms`);
+  assert.ok(progress.length > 0);
+});
+
 test("renders a focus-defined ellipse through its third point", async () => {
   const { ellipseGeometry } = await loadLocalModule("geometry");
   const firstFocus = { id: "A", x: -3, y: -1 };
@@ -99,6 +174,239 @@ test("renders a focus-defined ellipse through its third point", async () => {
     (localX * localX) / (geometry.radiusX * geometry.radiusX) +
     (localY * localY) / (geometry.radiusY * geometry.radiusY);
   assert.ok(Math.abs(equation - 1) < 1e-12, equation);
+});
+
+test("parses implicit equation objects and recursive set operations", async () => {
+  const {
+    compileImplicitEquation,
+    evaluateImplicitEquation,
+    parseConstraint,
+    parseMathExpression,
+    parseUnknown,
+    solveNumerically,
+  } = await loadLocalModule("expressions");
+  const points = new Map([
+    ["A", { id: "A", x: 2, y: -1 }],
+  ]);
+  const equation = compileImplicitEquation(
+    "(x - x(A))^2 + (y - y(A))^2 <= 3^2",
+  );
+  assert.ok(equation);
+  assert.equal(
+    evaluateImplicitEquation(equation, { x: 2, y: 2 }, points).inside,
+    true,
+  );
+  assert.ok(
+    evaluateImplicitEquation(equation, { x: 6, y: -1 }, points)
+      .membershipError > 0,
+  );
+  const pointFunctionEquation = compileImplicitEquation(
+    "distance((x; y), A) = 2",
+  );
+  assert.ok(pointFunctionEquation);
+  assert.ok(
+    evaluateImplicitEquation(
+      pointFunctionEquation,
+      { x: 4, y: -1 },
+      points,
+    ).boundaryError < 1e-12,
+  );
+
+  const chained = parseConstraint("P = AB ∩ CD ∩ EF");
+  assert.equal(chained.kind, "intersectionSet");
+  assert.equal(chained.intersection.set.kind, "intersection");
+  assert.equal(chained.intersection.set.operands.length, 3);
+
+  const union = parseConstraint("P ∈ f1 ∪ ABC");
+  assert.equal(union.kind, "intersectionSet");
+  assert.equal(union.intersection.set.kind, "union");
+  assert.equal(union.intersection.set.operands[0].object.kind, "equation");
+
+  const containment = parseConstraint("ABC ∈ DEFG");
+  assert.equal(containment.kind, "insideFigure");
+  assert.deepEqual(containment.ids, ["A", "B", "C", "D", "E", "F", "G"]);
+
+  const area = parseMathExpression("S(f1 ∪ ABC)");
+  assert.equal(area.measure, "setArea");
+  assert.equal(area.set.kind, "union");
+  const equationArea = parseMathExpression("S(f1)");
+  assert.equal(equationArea.measure, "area");
+  assert.equal(equationArea.geometry, "equation");
+  assert.equal(equationArea.shapeName, "f1");
+  const equationAreaTarget = parseUnknown("S(f1) = ?");
+  assert.equal(equationAreaTarget.kind, "formula");
+  assert.equal(equationAreaTarget.formula.measure, "area");
+  assert.equal(equationAreaTarget.formula.geometry, "equation");
+  assert.deepEqual(equationAreaTarget.ids, []);
+  assert.equal(parseUnknown("S(F1) = ?"), null);
+  assert.equal(parseUnknown("ab = ?").kind, "formula");
+  const objectDistance = parseMathExpression("distance(f1, AB)");
+  assert.equal(objectDistance.measure, "objectDistance");
+  assert.equal(objectDistance.objects[0].kind, "equation");
+  const coordinatePoint = parseMathExpression("(1; a)");
+  assert.equal(coordinatePoint.kind, "point");
+  const pointDistance = parseMathExpression("distance((1; a), C)");
+  assert.equal(pointDistance.measure, "objectDistance");
+  assert.equal(pointDistance.objects[0].point.kind, "point");
+  assert.deepEqual(pointDistance.objects[1].ids, ["C"]);
+  const pointToCircle = parseMathExpression(
+    "distance((1; 2), circle(AB))",
+  );
+  assert.equal(pointToCircle.measure, "objectDistance");
+  assert.equal(pointToCircle.objects[0].pointArguments.length, 1);
+  assert.equal(pointToCircle.objects[1].kind, "circle");
+  const pointToCircleConstraint = parseConstraint(
+    "distance((1; 2), circle(AB)) = 1",
+  );
+  assert.equal(pointToCircleConstraint.kind, "formula");
+  const computedPolygon = parseMathExpression("S((1; 2)(3; 4)(5; 6))");
+  assert.equal(computedPolygon.measure, "area");
+  assert.equal(computedPolygon.pointArguments.length, 3);
+  const computedContainment = parseConstraint(
+    "(1; 1) \u2208 (0; 0)(3; 0)(0; 3)",
+  );
+  assert.equal(computedContainment.kind, "insideFigure");
+  assert.equal(computedContainment.containment.inner.kind, "point");
+  assert.equal(computedContainment.containment.outer.kind, "polygon");
+  const computedAngle = parseMathExpression("angle((0; 0), C, (1; 0))");
+  assert.equal(computedAngle.measure, "angle");
+  assert.equal(computedAngle.pointArguments.length, 3);
+  const computedPointResult = solveNumerically(
+    [{ id: "C", x: 4, y: 6 }],
+    [],
+    [{ id: 1, expression: "a = 2", enabled: true, color: "#000" }],
+    [
+      {
+        id: 2,
+        expression: "distance((1; a), C)",
+        enabled: true,
+        color: "#000",
+      },
+    ],
+    1e-6,
+    "degrees",
+    20,
+    300,
+  );
+  assert.ok(
+    Math.abs(computedPointResult.result.values[0].value - 5) < 1e-9,
+  );
+  const pointToCircleResult = solveNumerically(
+    [
+      { id: "A", x: 0, y: 0 },
+      { id: "B", x: 1, y: 0 },
+    ],
+    [],
+    [
+      { id: 4, expression: "A = (0; 0)", enabled: true, color: "#000" },
+      { id: 5, expression: "B = (1; 0)", enabled: true, color: "#000" },
+    ],
+    [
+      {
+        id: 3,
+        expression: "distance((2; 0), circle(AB))",
+        enabled: true,
+        color: "#000",
+      },
+    ],
+    1e-6,
+    "degrees",
+    20,
+    300,
+  );
+  assert.ok(
+    pointToCircleResult.result.values[0],
+    JSON.stringify(pointToCircleResult.result),
+  );
+  assert.ok(Math.abs(pointToCircleResult.result.values[0].value - 1) < 1e-9);
+  const equationAreaResult = solveNumerically(
+    [
+      { id: "A", x: 0, y: 0 },
+      { id: "B", x: 1, y: 0 },
+    ],
+    [
+      {
+        id: "equation-region",
+        type: "equation",
+        points: [],
+        color: "#000",
+        name: "f1",
+        equation: "(x - x(A))^2 + (y - y(A))^2 <= 1",
+      },
+    ],
+    [],
+    [
+      {
+        id: 6,
+        expression: "S(f1) = ?",
+        enabled: true,
+        color: "#000",
+      },
+    ],
+    1e-6,
+    "degrees",
+    20,
+    300,
+  );
+  assert.equal(equationAreaResult.result.kind, "approximate");
+  assert.equal(equationAreaResult.result.values.length, 1);
+  assert.ok(equationAreaResult.result.values[0].value > 2.5);
+});
+
+test("numerical solver enforces membership in an implicit equation", async () => {
+  const { parseConstraint, solveNumerically } = await loadLocalModule("expressions");
+  const parsed = parseConstraint("P ∈ f1");
+  assert.equal(parsed.kind, "intersectionSet");
+  assert.equal(parsed.intersection.first.kind, "equation");
+  const solved = solveNumerically(
+    [{ id: "P", x: 1.5, y: 4 }],
+    [
+      {
+        id: "shape-equation",
+        type: "equation",
+        points: [],
+        color: "#5b6df9",
+        name: "f1",
+        equation: "y = 0",
+      },
+    ],
+    [{ id: 1, expression: "P ∈ f1", enabled: true, color: "#5b6df9" }],
+    [{ id: 2, expression: "y(P)", enabled: true, color: "#ef6b62" }],
+    1e-6,
+    "degrees",
+    1200,
+    1500,
+  );
+  assert.ok(
+    Math.abs(solved.points[0].y) < 1e-5,
+    JSON.stringify({ points: solved.points, result: solved.result }),
+  );
+  assert.ok(solved.result.residual < 1e-5, solved.result.residual);
+});
+
+test("matches the Apollo equation region with its explicit ellipse", async () => {
+  const project = JSON.parse(
+    await readFile(
+      new URL("../public/examples/apollo.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const { solveNumerically } = await loadLocalModule("expressions");
+  const solved = solveNumerically(
+    project.points,
+    project.shapes,
+    project.known,
+    project.unknown,
+    1e-6,
+    "degrees",
+    1200,
+    2500,
+  );
+  assert.equal(solved.result.values.length, 1);
+  assert.ok(
+    Math.abs(solved.result.values[0].value) < 1e-9,
+    solved.result.values[0].value,
+  );
 });
 
 test("analytical solver derives exact radicals and proposition verdicts", async () => {
@@ -815,7 +1123,8 @@ test("numerical predicate checks remain three-valued and reject unsafe direct ma
     100,
     500,
   );
-  assert.equal(incompatible.result.statements[0].verdict, "undetermined");
+  assert.equal(incompatible.result.kind, "inconsistent");
+  assert.equal(incompatible.result.contradictions.length, 1);
 });
 
 test("solves the overturned-square regression fixture", async () => {
@@ -830,6 +1139,7 @@ test("solves the overturned-square regression fixture", async () => {
     parseConstraint,
     parseMathExpression,
     parseUnknown,
+    renamePointInExpression,
     solveNumerically,
     trimNumber,
   } = await loadLocalModule();
@@ -843,14 +1153,14 @@ test("solves the overturned-square regression fixture", async () => {
     ids: ["A", "B", "C", "D"],
     source: "convex(ABCD)",
   });
-  assert.deepEqual(parseConstraint("inside(ABC, DEFG)"), {
+  assert.deepEqual(parseConstraint("ABC ∈ DEFG"), {
     kind: "insideFigure",
     ids: ["A", "B", "C", "D", "E", "F", "G"],
     containment: {
       inner: { kind: "polygon", ids: ["A", "B", "C"] },
       outer: { kind: "polygon", ids: ["D", "E", "F", "G"] },
     },
-    source: "inside(ABC, DEFG)",
+    source: "ABC ∈ DEFG",
   });
   assert.equal(
     parseConstraint("line(AB) ∩ circle(CD) = ∅")?.kind,
@@ -892,6 +1202,31 @@ test("solves the overturned-square regression fixture", async () => {
   assert.equal(normalizeUnknownExpression("AB = BC"), "AB = BC");
   assert.equal(normalizeUnknownExpression("AB"), "AB = ?");
   assert.equal(parseUnknown("AB = BC = ?"), null);
+  assert.deepEqual(parseConstraint("A123B89 = 5"), {
+    kind: "distance",
+    ids: ["A123", "B89"],
+    value: 5,
+  });
+  assert.deepEqual(parseConstraint("C777 ∈ A123B89"), {
+    kind: "onSegment",
+    ids: ["C777", "A123", "B89"],
+    source: "C777 ∈ A123B89",
+  });
+  assert.deepEqual(parseUnknown("S(A123B89C777)"), {
+    kind: "area",
+    ids: ["A123", "B89", "C777"],
+    label: "S(A123B89C777)",
+    geometry: "polygon",
+  });
+  assert.deepEqual(parseMathExpression("A123B89"), {
+    kind: "measure",
+    measure: "distance",
+    ids: ["A123", "B89"],
+  });
+  assert.equal(
+    renamePointInExpression("∠A123B89C777 = 90°", "B89", "D42"),
+    "∠A123D42C777 = 90°",
+  );
   const solved = solveNumerically(
     fixture.points,
     fixture.shapes,
@@ -976,7 +1311,7 @@ test("solves the overturned-square regression fixture", async () => {
     [],
     [
       { id: 3, expression: "convex(DEFG)", enabled: true, color: "#000" },
-      { id: 4, expression: "inside(ABC, DEFG)", enabled: true, color: "#000" },
+      { id: 4, expression: "ABC ∈ DEFG", enabled: true, color: "#000" },
       {
         id: 5,
         expression: "line(HI) ∩ circle(JK) = ∅",
@@ -1177,17 +1512,17 @@ test("parses and enforces point containment", async () => {
     "expressions",
   );
   const { pointInPolygon } = await loadLocalModule("geometry");
-  assert.deepEqual(parseConstraint("inside(A, BCD)"), {
+  assert.deepEqual(parseConstraint("A ∈ BCD"), {
     kind: "insideFigure",
     ids: ["A", "B", "C", "D"],
     containment: {
       inner: { kind: "point", ids: ["A"] },
       outer: { kind: "polygon", ids: ["B", "C", "D"] },
     },
-    source: "inside(A, BCD)",
+    source: "A ∈ BCD",
   });
   assert.equal(
-    parseConstraint("inside(point(A), circle(BC))")?.containment?.inner.kind,
+    parseConstraint("point(A) ∈ circle(BC)")?.containment?.inner.kind,
     "point",
   );
   const row = (id, expression) => ({
@@ -1208,7 +1543,7 @@ test("parses and enforces point containment", async () => {
       row(1, "B = (0, 0)"),
       row(2, "C = (4, 0)"),
       row(3, "D = (0, 4)"),
-      row(4, "inside(A, BCD)"),
+      row(4, "A ∈ BCD"),
     ],
     [],
     1e-6,
@@ -1269,11 +1604,16 @@ test("distinguishes exact intersection sets from membership", async () => {
 test("migrates legacy intersections and sector directions", async () => {
   const {
     CURRENT_PROJECT_FORMAT_VERSION,
+    migrateLegacyInsideExpression,
     migrateLegacyIntersectionExpression,
     migrateLegacySectorDirections,
   } = await loadLocalModule("project-migrations");
   const { parseImportedProject } = await loadLocalModule("project-state");
-  assert.equal(CURRENT_PROJECT_FORMAT_VERSION, 4);
+  assert.equal(CURRENT_PROJECT_FORMAT_VERSION, 7);
+  assert.equal(
+    migrateLegacyInsideExpression("inside(circle(AB), CDE)"),
+    "circle(AB) ∈ CDE",
+  );
   assert.equal(
     migrateLegacyIntersectionExpression("H = EG ∩ DF"),
     "H ∈ EG ∩ DF",
@@ -1304,6 +1644,10 @@ test("migrates legacy intersections and sector directions", async () => {
   };
   const migrated = parseImportedProject(JSON.stringify(legacyProject));
   assert.equal(migrated.snapshot.known[0].expression, "H ∈ EG ∩ DF");
+  assert.deepEqual(
+    migrated.snapshot.points.map((point) => point.editorOrder),
+    [...Array(migrated.snapshot.points.length).keys()],
+  );
   const formatTwo = parseImportedProject(
     JSON.stringify({
       ...legacyProject,
@@ -1318,6 +1662,30 @@ test("migrates legacy intersections and sector directions", async () => {
   );
   assert.equal(formatTwo.snapshot.known[0].expression, "H = EG ∩ DF");
   assert.equal(formatTwo.solverMode, "numerical");
+  const formatSix = parseImportedProject(
+    JSON.stringify({
+      ...legacyProject,
+      version: 6,
+      shapes: [
+        {
+          id: "legacy-equation",
+          type: "equationLine",
+          points: [],
+          color: "#000000",
+          name: "f1",
+          equation: "y = 0",
+        },
+      ],
+      known: [
+        {
+          ...legacyProject.known[0],
+          expression: "inside(ABC, DEFG)",
+        },
+      ],
+    }),
+  );
+  assert.equal(formatSix.snapshot.shapes[0].type, "equation");
+  assert.equal(formatSix.snapshot.known[0].expression, "ABC ∈ DEFG");
   const current = parseImportedProject(
     JSON.stringify({
       ...legacyProject,
@@ -1425,6 +1793,9 @@ test("imports every project exposed by the help examples", async () => {
     "inconsistent-altitude-t3",
     "right-triangle-altitude-t4",
     "intersecting-sectors-t5",
+    "task-t", "t18", "t17", "t16", "t15", "t14", "t13",
+    "runaway-polygon", "t12", "t11", "this-is-a-trap", "power-chords",
+    "all-born-equal", "beautiful-haircut", "sunset-square-city", "t19",
   ];
   const projects = await Promise.all(
     names.map(async (name) =>
@@ -1575,6 +1946,54 @@ test("analytical solver covers every analytically solvable bundled example", asy
         ),
       );
     }
+  }
+});
+
+test("analytical solver covers the newly bundled theorem examples", async () => {
+  const { solveAnalytically } = await loadLocalModule("analytic-solver");
+  const expected = new Map([
+    ["task-t", [4.5]],
+    ["t17", [0]],
+    ["t16", [180]],
+    ["t15", [0, 0]],
+    ["t14", [(3 * Math.sqrt(3)) / (4 * Math.PI)]],
+    ["t13", [(Math.sqrt(3) - 1) / 4]],
+    ["runaway-polygon", [2 / 3]],
+    ["t12", [8, 18]],
+    ["t11", [
+      Math.sin((40 * Math.PI) / 180) / Math.sin((80 * Math.PI) / 180),
+      Math.sin((60 * Math.PI) / 180) / Math.sin((80 * Math.PI) / 180),
+    ]],
+    ["this-is-a-trap", [5]],
+    ["power-chords", [(205 * Math.PI) / 4]],
+    ["all-born-equal", [15]],
+    ["beautiful-haircut", [10]],
+    ["sunset-square-city", [8]],
+    ["t19", [0]],
+  ]);
+  for (const [name, values] of expected) {
+    const project = JSON.parse(
+      await readFile(
+        new URL(`../public/examples/${name}.json`, import.meta.url),
+        "utf8",
+      ),
+    );
+    const solved = solveAnalytically(
+      project.points, project.shapes, project.known, project.unknown,
+      "degrees", 1e-6, 300, 500, false,
+    );
+    assert.equal(
+      solved.result.goalSummary.completed,
+      values.length,
+      `${name}: ${JSON.stringify(solved.result.goalSummary)}`,
+    );
+    assert.equal(solved.result.values.length, values.length, name);
+    solved.result.values.forEach((value, index) => {
+      assert.ok(
+        Math.abs(value.value - values[index]) < 1e-9,
+        `${name}[${index}]: ${value.value} != ${values[index]}`,
+      );
+    });
   }
 });
 
@@ -1764,4 +2183,261 @@ test("solves the tangent-circle project 25 accurately", async () => {
     Math.abs(solved.result.values[0].value - 4 * Math.sqrt(14)) < 1e-5,
     `unexpected tangent chord: ${solved.result.values[0].value}`,
   );
+});
+
+test("converges for three mutually tangent circles inside a larger circle", async () => {
+  const { solveNumerically } = await loadLocalModule();
+  const points = [
+    { id: "A", x: -2.4412083200671497, y: -0.05315954740262043 },
+    { id: "B", x: -0.6748339895793395, y: -1.8583562263429352 },
+    { id: "C", x: -1.5758722746394223, y: -0.706118206466386 },
+    { id: "D", x: -0.3826839484681536, y: -1.515517583411662 },
+    { id: "E", x: -1.656754544162852, y: -0.7819828302962958 },
+    { id: "F", x: -0.7296446694056163, y: -1.7623990713643816 },
+    { id: "G", x: -1.5114397806398827, y: -0.6158638781378329 },
+    { id: "H", x: -0.1731330132615062, y: -1.3622575391490714 },
+    { id: "I", x: -2.409448512517331, y: -1.864588700762274 },
+    { id: "J", x: -2.634154497928616, y: -1.6934974702571497 },
+    { id: "K", x: -2.523418359268405, y: -1.7849833992655537 },
+  ];
+  const shapes = [
+    { id: "outer", type: "circle", points: ["A", "B"], color: "#000" },
+    { id: "one", type: "circle", points: ["C", "D"], color: "#000" },
+    { id: "two", type: "circle", points: ["E", "F"], color: "#000" },
+    { id: "three", type: "circle", points: ["G", "H"], color: "#000" },
+  ];
+  const expressions = [
+    "I = circle(CD) ∩ circle(GH)",
+    "J = circle(EF) ∩ circle(CD)",
+    "K = circle(EF) ∩ circle(GH)",
+    "D = circle(AB) ∩ circle(CD)",
+    "F = circle(AB) ∩ circle(EF)",
+    "H = circle(AB) ∩ circle(GH)",
+    "AC = AE = AG = 1",
+    "distinct(AECG)",
+    "circle(CD) ∈ circle(AB)",
+    "circle(EF) ∈ circle(AB)",
+    "circle(GH) ∈ circle(AB)",
+  ];
+  const known = expressions.map((expression, index) => ({
+    id: index + 1,
+    expression,
+    enabled: true,
+    color: "#000",
+  }));
+  const solved = solveNumerically(
+    points,
+    shapes,
+    known,
+    [{ id: 100, expression: "AB = ?", enabled: true, color: "#000" }],
+    1e-6,
+    "degrees",
+    1200,
+    2500,
+  );
+  assert.equal(solved.result.kind, "exact");
+  assert.ok(solved.result.residual < 1e-7, solved.result.residual);
+  assert.ok(
+    Math.abs(solved.result.values[0].value - (1 + Math.sqrt(3) / 2)) < 1e-6,
+    solved.result.values[0].value,
+  );
+});
+
+test("keeps fully specified coordinate anchors fixed during numerical search", async () => {
+  const { solveNumerically } = await loadLocalModule();
+  const points = [
+    { id: "A", x: 0.004, y: 3.336 },
+    { id: "B", x: 1.171, y: 1.47 },
+    { id: "C", x: 1, y: 2 },
+  ];
+  const known = ["C ∈ AB", "C = (1; 2)", "A = (0; 0)"].map(
+    (expression, index) => ({
+      id: index + 1,
+      expression,
+      enabled: true,
+      color: "#000",
+    }),
+  );
+  const unknown = ["x(B) = ?", "y(B) = ?"].map((expression, index) => ({
+    id: index + 10,
+    expression,
+    enabled: true,
+    color: "#000",
+  }));
+  const solved = solveNumerically(
+    points,
+    [{ id: "AB", type: "segment", points: ["A", "B"], color: "#000" }],
+    known,
+    unknown,
+    1e-6,
+    "degrees",
+    1200,
+    2500,
+  );
+  assert.equal(solved.result.kind, "exact");
+  assert.ok(solved.result.residual < 1e-7, solved.result.residual);
+  assert.deepEqual(solved.points.find((point) => point.id === "A"), {
+    id: "A",
+    x: 0,
+    y: 0,
+  });
+  assert.deepEqual(solved.points.find((point) => point.id === "C"), {
+    id: "C",
+    x: 1,
+    y: 2,
+  });
+});
+
+test("derives all available two-triangle targets and does not fake numerical convergence", async () => {
+  const { solveNumerically } = await loadLocalModule();
+  const { solveAnalytically } = await loadLocalModule("analytic-solver");
+  const points = [
+    { id: "A", x: -5.069, y: -3.615 },
+    { id: "B", x: -4.568, y: -0.657 },
+    { id: "C", x: -0.344, y: -1.373 },
+    { id: "D", x: 2.805, y: 1.124 },
+    { id: "E", x: 4.665, y: -1.221 },
+  ];
+  const known = [
+    "distinct(ABC)",
+    "distinct(CDE)",
+    "∠ABC = 90°",
+    "∠CDE = 90°",
+    "∠BAC = 55°",
+    "∠DCE = 35°",
+    "AB = 3",
+    "CE = 5",
+    "DE = 3",
+  ].map((expression, index) => ({
+    id: index + 1,
+    expression,
+    enabled: true,
+    color: "#000",
+  }));
+  const unknown = ["∠ACB = ?", "AC = ?", "CD = ?"].map(
+    (expression, index) => ({
+      id: index + 20,
+      expression,
+      enabled: true,
+      color: "#000",
+    }),
+  );
+  const analytic = solveAnalytically(
+    points,
+    [],
+    known,
+    unknown,
+    "degrees",
+    1e-6,
+    1200,
+    2500,
+  );
+  assert.equal(analytic.result.goalSummary.completed, 3);
+  assert.deepEqual(
+    analytic.result.values.map((value) => value.exact),
+    ["35", "3/cos(55*pi/180)", "4"],
+  );
+
+  const numerical = solveNumerically(
+    points,
+    [],
+    known,
+    unknown,
+    1e-6,
+    "degrees",
+    1200,
+    2500,
+  );
+  assert.equal(numerical.result.kind, "approximate");
+  assert.ok(Number.isFinite(numerical.result.residual));
+  assert.ok(numerical.result.residual < 0.01, numerical.result.residual);
+  numerical.points.forEach((point) => {
+    assert.ok(Number.isFinite(point.x));
+    assert.ok(Number.isFinite(point.y));
+    assert.ok(Math.abs(point.x) < 100 && Math.abs(point.y) < 100);
+  });
+});
+
+test("keeps proven targets stable and reports drawing accuracy after a shuffle", async () => {
+  const project = JSON.parse(
+    await readFile(
+      new URL("../public/examples/washing-machine.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const coordinates = [
+    ["A", 6.5215, 5.0811], ["B", -0.6121, 6.8752], ["C", -4.9974, 0.1646],
+    ["D", 2.3592, -2.1], ["E", 4.4371, 1.5637], ["F", 0.603, -1.2827],
+    ["G", 5.5395, 5.9484], ["H", -0.0775, 4.5128], ["I", 2.3679, -2.5636],
+    ["J", -0.1061, 0.0534], ["K", -0.1245, 0.4636], ["L", -0.5342, 0.4461],
+    ["M", -0.5159, 0.0359], ["N", -0.5316, 0.4469], ["O", 0.7867, -1.5511],
+    ["P", -0.4379, 0.5216], ["Q", 0.9319, -1.44], ["R", -0.3045, 0.5656],
+    ["S", 0.7727, -1.5231], ["T", -0.4125, 0.5134], ["U", 0.9257, -1.4309],
+    ["V", 0.4617, -1.05], ["W", 0.5042, -1.4678], ["X", 0.9225, -1.4279],
+    ["Y", 0.8798, -1.0099],
+  ];
+  project.points = coordinates.map(([id, x, y]) => ({ id, x, y }));
+  project.known = project.known.map((row) => ({
+    ...row,
+    expression: row.expression.replace(
+      /^([FGHI])\s*=\s*(circle\(EF\)\s*∩)/i,
+      "$1 ∈ $2",
+    ),
+  }));
+  const { solveAnalytically } = await loadLocalModule("analytic-solver");
+  const { solveNumerically } = await loadLocalModule();
+  const analytic = solveAnalytically(
+    project.points, project.shapes, project.known, project.unknown,
+    "degrees", 1e-6, 1200, 2500, false,
+  );
+  const hints = Object.fromEntries(
+    analytic.result.values.map((value) => [value.label, value.value]),
+  );
+  const solved = solveNumerically(
+    project.points, project.shapes, project.known, project.unknown,
+    1e-6, "degrees", 1200, 2500, hints,
+  );
+  assert.equal(solved.result.kind, "exact");
+  assert.equal(solved.result.drawing.status, "approximate");
+  assert.ok(Math.abs(solved.result.values[0].value - 2 / 5) < 1e-12);
+  assert.ok(solved.result.residual < 0.00001, solved.result.residual);
+});
+
+test("keeps the overturned-square area stable after a failed drawing shuffle", async () => {
+  const project = JSON.parse(
+    await readFile(
+      new URL("../public/examples/overturned-square.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const coordinates = [
+    ["A", 2.8373, -5.6892], ["B", -4.9039, 2.9556], ["C", 2.7326, -5.7499],
+    ["D", -4.3172, 3.4423], ["E", -0.4311, -1.4263], ["F", 3.0074, -5.6902],
+    ["G", -1.8051, 1.8386], ["H", 2.9616, -2.157], ["I", 2.3884, -5.5758],
+    ["J", -0.9921, -4.8231], ["K", -6.3015, -1.1085], ["L", -2.0804, -4.6611],
+    ["M", 2.9291, -2.1986], ["N", -2.4795, 3.1819], ["O", -4.729, 3.0254],
+    ["P", 1.5219, -4.0576], ["Q", -3.7071, 3.7556], ["R", 2.0065, -3.728],
+    ["S", -2419.095, 967.8401], ["T", 1826.8949, -739.2329],
+  ];
+  project.points = coordinates.map(([id, x, y]) => ({ id, x, y }));
+  const { solveAnalytically } = await loadLocalModule("analytic-solver");
+  const { solveNumerically } = await loadLocalModule();
+  const analytic = solveAnalytically(
+    project.points, project.shapes, project.known, project.unknown,
+    "degrees", 1e-6, 1200, 2500, false,
+  );
+  const hints = Object.fromEntries(
+    analytic.result.values.map((value) => [value.label, value.value]),
+  );
+  const solved = solveNumerically(
+    project.points, project.shapes, project.known, project.unknown,
+    1e-6, "degrees", 1200, 2500, hints,
+  );
+  assert.equal(solved.result.kind, "exact");
+  assert.equal(solved.result.drawing.status, "rebuilt");
+  assert.equal(solved.result.values[0].value, 135);
+  assert.ok(solved.result.residual < 1e-6, solved.result.residual);
+  solved.points.forEach((point) => {
+    assert.ok(Number.isFinite(point.x) && Number.isFinite(point.y));
+  });
 });

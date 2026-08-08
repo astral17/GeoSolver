@@ -1,0 +1,473 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "Закат над Квадратным городом",
+  "points": [
+    {
+      "id": "A",
+      "x": -9.910861743395326,
+      "y": -4.815134247408451
+    },
+    {
+      "id": "B",
+      "x": 8.1761608488871,
+      "y": 1.9582592604552373
+    },
+    {
+      "id": "C",
+      "x": -0.8673503973771485,
+      "y": -1.4284376969735275
+    },
+    {
+      "id": "D",
+      "x": -7.26207839388136,
+      "y": -3.8231935683751743
+    },
+    {
+      "id": "E",
+      "x": 5.527377433994299,
+      "y": 0.9663186517264651
+    },
+    {
+      "id": "F",
+      "x": -5.389105638745449,
+      "y": -3.1217856756114135
+    },
+    {
+      "id": "G",
+      "x": 3.654404719828662,
+      "y": 0.26491060708330744
+    },
+    {
+      "id": "H",
+      "x": 3.1326213184968887,
+      "y": 7.361046585219493
+    },
+    {
+      "id": "I",
+      "x": -3.262106531219867,
+      "y": 4.966290229797946
+    },
+    {
+      "id": "J",
+      "x": -2.5606986153032105,
+      "y": 3.0933174847933844
+    },
+    {
+      "id": "K",
+      "x": -7.082453879137149,
+      "y": 1.3999694990818448
+    },
+    {
+      "id": "L",
+      "x": 4.535436819946777,
+      "y": 3.615102068156999
+    },
+    {
+      "id": "M",
+      "x": 7.184220236592834,
+      "y": 4.6070426761900904
+    },
+    {
+      "id": "N",
+      "x": -6.090513527542308,
+      "y": -1.2488129170374418
+    },
+    {
+      "id": "O",
+      "x": -7.963486286173716,
+      "y": -1.9502208088071167
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785615669543",
+      "type": "segment",
+      "points": [
+        "A",
+        "B"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785615682070",
+      "type": "sector",
+      "points": [
+        "C",
+        "A",
+        "B"
+      ],
+      "color": "#ef6b62",
+      "arc": "clockwise"
+    },
+    {
+      "id": "shape-1785615704297",
+      "type": "sector",
+      "points": [
+        "C",
+        "D",
+        "E"
+      ],
+      "color": "#26a880",
+      "arc": "clockwise"
+    },
+    {
+      "id": "shape-1785615708023",
+      "type": "sector",
+      "points": [
+        "C",
+        "F",
+        "G"
+      ],
+      "color": "#f0a11b",
+      "arc": "clockwise"
+    },
+    {
+      "id": "shape-1785615811880",
+      "type": "polygon",
+      "points": [
+        "C",
+        "I",
+        "H",
+        "E"
+      ],
+      "color": "#8c5ad7"
+    },
+    {
+      "id": "shape-1785615850977",
+      "type": "polygon",
+      "points": [
+        "J",
+        "K",
+        "F",
+        "C"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785615857279",
+      "type": "polygon",
+      "points": [
+        "E",
+        "L",
+        "M",
+        "B"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785615871553",
+      "type": "polygon",
+      "points": [
+        "D",
+        "O",
+        "N",
+        "F"
+      ],
+      "color": "#26a880"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785615673436,
+      "expression": "C ∈ AB",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785615682070,
+      "expression": "CA = CB",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785615682071,
+      "expression": "distinct(CAB)",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785615691525,
+      "expression": "D ∈ CA",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785615692542,
+      "expression": "E ∈ CB",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785615695468,
+      "expression": "F ∈ AB",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785615696410,
+      "expression": "G ∈ CB",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785615704297,
+      "expression": "CD = CE",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785615704298,
+      "expression": "distinct(CDE)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785615708023,
+      "expression": "CF = CG",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785615708024,
+      "expression": "distinct(CFG)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785615774082,
+      "expression": "H ∈ arc(CAB)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785615776481,
+      "expression": "I ∈ arc(CDE)",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785615787608,
+      "expression": "J ∈ arc(CFG)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785615798328,
+      "expression": "K ∈ arc(CDE)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785615811880,
+      "expression": "CI = IH = HE = EC",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785615811881,
+      "expression": "CI ∥ HE",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785615811882,
+      "expression": "IH ∥ EC",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785615811883,
+      "expression": "∠ECI = 90°",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785615811884,
+      "expression": "distinct(CIHE)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785615811885,
+      "expression": "CI ∩ HE = ∅",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785615811886,
+      "expression": "IH ∩ EC = ∅",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785615811887,
+      "expression": "J ∈ IC",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785615836128,
+      "expression": "L ∈ HE",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785615850977,
+      "expression": "JK = KF = FC = CJ",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785615850978,
+      "expression": "JK ∥ FC",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785615850979,
+      "expression": "KF ∥ CJ",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785615850980,
+      "expression": "∠CJK = 90°",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785615850981,
+      "expression": "distinct(JKFC)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785615850982,
+      "expression": "JK ∩ FC = ∅",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785615850983,
+      "expression": "KF ∩ CJ = ∅",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785615857279,
+      "expression": "EL = LM = MB = BE",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785615857280,
+      "expression": "EL ∥ MB",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785615857281,
+      "expression": "LM ∥ BE",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785615857282,
+      "expression": "∠BEL = 90°",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785615857283,
+      "expression": "distinct(ELMB)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785615857284,
+      "expression": "EL ∩ MB = ∅",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785615857285,
+      "expression": "LM ∩ BE = ∅",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785615865305,
+      "expression": "N ∈ KF",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785615871553,
+      "expression": "DO = ON = NF = FD",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785615871554,
+      "expression": "DO ∥ NF",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785615871555,
+      "expression": "ON ∥ FD",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785615871556,
+      "expression": "∠FDO = 90°",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785615871557,
+      "expression": "distinct(DONF)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785615871558,
+      "expression": "DO ∩ NF = ∅",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785615871559,
+      "expression": "ON ∩ FD = ∅",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785615885954,
+      "expression": "S(DONF) = 4",
+      "enabled": true,
+      "color": "#ef6b62"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785615902099,
+      "expression": "S(ELMB) = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": {
+    "x": 56.38244597536215,
+    "y": -48.57951818412901,
+    "scale": 36.74731248056429
+  }
+}

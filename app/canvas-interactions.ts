@@ -405,7 +405,7 @@ export function useCanvasInteractions(options: CanvasInteractionsOptions) {
             setPendingPoints(selection);
           }
         } else if (activeTool === "setArea") {
-          if (id === pendingPoints.at(-1)) {
+          if (pendingPoints.includes(id)) {
             if (pendingPoints.length >= 3) {
               onAddFocusedKnown(`S(${pendingPoints.join("")}) = `);
               setPendingPoints([]);
@@ -713,28 +713,35 @@ export function useCanvasInteractions(options: CanvasInteractionsOptions) {
           ids: [hit.startId, hit.endId, hit.thirdId].filter(
             (id): id is string => Boolean(id),
           ),
+          name: hit.name,
         });
-        const located = locateObjectIntersections(
-          toIntersectionObject(first),
-          toIntersectionObject(second),
-          map,
-          shapes,
-        );
+        const hasEquation =
+          first.kind === "equation" || second.kind === "equation";
+        const located = hasEquation
+          ? { points: [], continuous: false }
+          : locateObjectIntersections(
+              toIntersectionObject(first),
+              toIntersectionObject(second),
+              map,
+              shapes,
+            );
         const intersections = located.continuous ? [] : located.points;
         const clickWorld = screenToWorld(position.x, position.y);
-        const intersection = intersections
-          .slice()
-          .sort(
-            (firstPoint, secondPoint) =>
-              Math.hypot(
-                firstPoint.x - clickWorld.x,
-                firstPoint.y - clickWorld.y,
-              ) -
-              Math.hypot(
-                secondPoint.x - clickWorld.x,
-                secondPoint.y - clickWorld.y,
-              ),
-          )[0];
+        const intersection = hasEquation
+          ? { id: "", ...clickWorld }
+          : intersections
+              .slice()
+              .sort(
+                (firstPoint, secondPoint) =>
+                  Math.hypot(
+                    firstPoint.x - clickWorld.x,
+                    firstPoint.y - clickWorld.y,
+                  ) -
+                  Math.hypot(
+                    secondPoint.x - clickWorld.x,
+                    secondPoint.y - clickWorld.y,
+                  ),
+              )[0];
         if (!intersection) {
           pendingIntersectionRef.current = null;
           setCanvasNotice(
@@ -812,41 +819,6 @@ export function useCanvasInteractions(options: CanvasInteractionsOptions) {
         activeTool === "setArea"
       ) {
         const hit = findPointAt(position.x, position.y);
-        if (
-          activeTool === "area" &&
-          !hit &&
-          pendingPoints.length === 0
-        ) {
-          const object = findObjectAt(position.x, position.y);
-          const measuredShape = object
-            ? shapes.find((shape) => shape.id === object.shapeId)
-            : null;
-          if (
-            measuredShape &&
-            (
-              [
-                "polygon",
-                "circle",
-                "ellipse",
-                "sector",
-                "circularSegment",
-              ] as Shape["type"][]
-            ).includes(measuredShape.type)
-          ) {
-            setMeasurements((current) => [
-              ...current,
-              {
-                id: Date.now(),
-                kind: "area",
-                points: [...measuredShape.points],
-                shapeId: measuredShape.id,
-                color: COLORS[(current.length + 3) % COLORS.length],
-              },
-            ]);
-            setPendingPoints([]);
-            return;
-          }
-        }
         setDrag({
           type: "measurementPan",
           hit,

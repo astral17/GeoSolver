@@ -1,0 +1,188 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "Все рождены равными",
+  "points": [
+    {
+      "id": "A",
+      "x": -5.7508582236568415,
+      "y": -2.372745485152532
+    },
+    {
+      "id": "B",
+      "x": 1.588134870246986,
+      "y": 4.7027212004169
+    },
+    {
+      "id": "C",
+      "x": 4.046172216631189,
+      "y": -5.190766599888601
+    },
+    {
+      "id": "D",
+      "x": -0.8581961610149414,
+      "y": 2.3442323053352574
+    },
+    {
+      "id": "E",
+      "x": 3.22682643428477,
+      "y": -1.8929373331219355
+    },
+    {
+      "id": "F",
+      "x": -2.4851814104136607,
+      "y": -3.312085856457213
+    },
+    {
+      "id": "G",
+      "x": -7.38954978798528,
+      "y": 4.222913048471526
+    },
+    {
+      "id": "H",
+      "x": 6.492503247821855,
+      "y": -2.8322777045095413
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785616179848",
+      "type": "polygon",
+      "points": [
+        "A",
+        "B",
+        "C"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785616190088",
+      "type": "polygon",
+      "points": [
+        "D",
+        "E",
+        "F"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785616192572",
+      "type": "polygon",
+      "points": [
+        "A",
+        "D",
+        "G"
+      ],
+      "color": "#26a880"
+    },
+    {
+      "id": "shape-1785616198678",
+      "type": "polygon",
+      "points": [
+        "C",
+        "E",
+        "H"
+      ],
+      "color": "#f0a11b"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785616179847,
+      "expression": "AB = BC = CA",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785616179848,
+      "expression": "distinct(ABC)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785616181584,
+      "expression": "D ∈ AB",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785616182537,
+      "expression": "E ∈ BC",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785616184381,
+      "expression": "F ∈ CA",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785616190088,
+      "expression": "DE = EF = FD",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785616190089,
+      "expression": "distinct(DEF)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785616192572,
+      "expression": "AD = DG = GA",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785616192573,
+      "expression": "distinct(ADG)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785616198678,
+      "expression": "CE = EH = HC",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785616198679,
+      "expression": "distinct(CEH)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785616198680,
+      "expression": "S(ADG) = 20",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785616198681,
+      "expression": "S(CEH) = 5",
+      "enabled": true,
+      "color": "#26a880"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785616198682,
+      "expression": "S(DEF) = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": {
+    "x": 74.33366312358744,
+    "y": -18.830011108542024,
+    "scale": 60.586075727770655
+  }
+}

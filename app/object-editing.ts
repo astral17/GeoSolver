@@ -1,5 +1,6 @@
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 import type {
+  EditorGroup,
   ExpressionRow,
   Measurement,
   Point,
@@ -14,6 +15,8 @@ type Translate = (russian: string, english: string) => string;
 
 type ObjectEditingOptions = {
   points: Point[];
+  shapes: Shape[];
+  groups: EditorGroup[];
   selectedPoint: string | null;
   setPoints: Setter<Point[]>;
   setShapes: Setter<Shape[]>;
@@ -68,6 +71,8 @@ function reorderItem<T extends { id: string; groupId?: string }>(
 
 export function useObjectEditing({
   points,
+  shapes,
+  groups,
   selectedPoint,
   setPoints,
   setShapes,
@@ -85,11 +90,11 @@ export function useObjectEditing({
   const renamePoint = useCallback(
     (previousId: string, value: string) => {
       const nextId = value.trim().toUpperCase();
-      if (!/^[A-Z]$/.test(nextId)) {
+      if (!/^[A-Z]\d*$/.test(nextId)) {
         setCanvasNotice(
           t(
-            "Имя точки должно быть одной латинской буквой A–Z",
-            "A point name must be one Latin letter A–Z",
+            "Имя точки: латинская буква A–Z и необязательные цифры",
+            "Use a Latin letter A–Z followed by optional digits",
           ),
         );
         window.setTimeout(() => setCanvasNotice(null), 2000);
@@ -181,7 +186,9 @@ export function useObjectEditing({
   const updatePointObject = useCallback(
     (
       id: string,
-      patch: Partial<Pick<Point, "x" | "y" | "visible" | "groupId">>,
+      patch: Partial<
+        Pick<Point, "x" | "y" | "visible" | "groupId" | "editorOrder">
+      >,
     ) => {
       setPoints((current) =>
         current.map((point) =>
@@ -221,6 +228,22 @@ export function useObjectEditing({
         id,
         x: last ? last.x + 0.8 : 0,
         y: last ? last.y + 0.8 : 0,
+        editorOrder:
+          Math.max(
+            -1,
+            ...points
+              .filter((point) => !point.groupId)
+              .map((point) => point.editorOrder ?? -1),
+            ...shapes
+              .filter((shape) => !shape.groupId)
+              .map((shape) => shape.editorOrder ?? -1),
+            ...groups
+              .filter(
+                (group) =>
+                  group.section === "objects" && !group.parentGroupId,
+              )
+              .map((group) => group.editorOrder ?? -1),
+          ) + 1,
       },
     ]);
     setSelectedPoint(id);
@@ -230,7 +253,9 @@ export function useObjectEditing({
     return id;
   }, [
     markDirty,
+    groups,
     points,
+    shapes,
     setPoints,
     setRenameValue,
     setSelectedPoint,
@@ -239,7 +264,9 @@ export function useObjectEditing({
 
   const addShapeObject = useCallback((type: Shape["type"]) => {
     const pointCount =
-      type === "ellipse" ||
+      type === "equation"
+        ? 0
+        : type === "ellipse" ||
       type === "sector" ||
       type === "circularSegment" ||
       type === "polygon"
@@ -258,6 +285,11 @@ export function useObjectEditing({
       return null;
     }
     const id = `shape-manual-${Date.now()}`;
+    const equationIndex =
+      shapes.filter(
+        (shape) =>
+          shape.type === "equation",
+      ).length + 1;
     setShapes((current) => [
       ...current,
       {
@@ -265,6 +297,28 @@ export function useObjectEditing({
         type,
         points: points.slice(0, pointCount).map((point) => point.id),
         color: COLORS[current.length % COLORS.length],
+        name:
+          type === "equation"
+            ? `f${equationIndex}`
+            : undefined,
+        equation:
+          type === "equation" ? "y = 0" : undefined,
+        editorOrder:
+          Math.max(
+            -1,
+            ...points
+              .filter((point) => !point.groupId)
+              .map((point) => point.editorOrder ?? -1),
+            ...shapes
+              .filter((shape) => !shape.groupId)
+              .map((shape) => shape.editorOrder ?? -1),
+            ...groups
+              .filter(
+                (group) =>
+                  group.section === "objects" && !group.parentGroupId,
+              )
+              .map((group) => group.editorOrder ?? -1),
+          ) + 1,
         arc:
           type === "sector"
             ? "clockwise"
@@ -275,7 +329,7 @@ export function useObjectEditing({
     ]);
     markDirty();
     return id;
-  }, [markDirty, points, setCanvasNotice, setShapes, t]);
+  }, [groups, markDirty, points, setCanvasNotice, setShapes, shapes, t]);
 
   const deletePointObject = useCallback(
     (id: string) => {
@@ -354,6 +408,105 @@ export function useObjectEditing({
     [markDirty, setShapes],
   );
 
+  const reorderMixedObjects = useCallback(
+    (
+      sourceKind: "point" | "shape",
+      sourceId: string,
+      targetKind: "point" | "shape",
+      targetId: string,
+    ) => {
+      const mixed = [
+        ...points.map((item, index) => ({
+          kind: "point" as const,
+          item,
+          fallback: index,
+        })),
+        ...shapes.map((item, index) => ({
+          kind: "shape" as const,
+          item,
+          fallback: points.length + index,
+        })),
+      ].sort(
+        (first, second) =>
+          (first.item.editorOrder ?? first.fallback) -
+          (second.item.editorOrder ?? second.fallback),
+      );
+      const sourceIndex = mixed.findIndex(
+        (entry) => entry.kind === sourceKind && entry.item.id === sourceId,
+      );
+      const targetIndex = mixed.findIndex(
+        (entry) => entry.kind === targetKind && entry.item.id === targetId,
+      );
+      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+        return;
+      }
+      const [source] = mixed.splice(sourceIndex, 1);
+      const targetAfterRemoval = mixed.findIndex(
+        (entry) => entry.kind === targetKind && entry.item.id === targetId,
+      );
+      const target = mixed[targetAfterRemoval];
+      const movedSource =
+        source.kind === "point"
+          ? {
+              ...source,
+              item: { ...source.item, groupId: target?.item.groupId },
+            }
+          : {
+              ...source,
+              item: { ...source.item, groupId: target?.item.groupId },
+            };
+      mixed.splice(
+        sourceIndex < targetIndex ? targetAfterRemoval + 1 : targetAfterRemoval,
+        0,
+        movedSource,
+      );
+      const orderByKey = new Map(
+        mixed.map((entry, index) => [`${entry.kind}:${entry.item.id}`, index]),
+      );
+      setPoints((current) =>
+        current.map((point) => ({
+          ...point,
+          editorOrder: orderByKey.get(`point:${point.id}`),
+          groupId:
+            sourceKind === "point" && point.id === sourceId
+              ? target?.item.groupId
+              : point.groupId,
+        })),
+      );
+      setShapes((current) =>
+        current.map((shape) => ({
+          ...shape,
+          editorOrder: orderByKey.get(`shape:${shape.id}`),
+          groupId:
+            sourceKind === "shape" && shape.id === sourceId
+              ? target?.item.groupId
+              : shape.groupId,
+        })),
+      );
+      markDirty();
+    },
+    [markDirty, points, setPoints, setShapes, shapes],
+  );
+
+  const moveMixedObject = useCallback(
+    (kind: "point" | "shape", id: string, direction: -1 | 1) => {
+      const mixed = [
+        ...points.map((item, index) => ({ kind: "point" as const, item, fallback: index })),
+        ...shapes.map((item, index) => ({ kind: "shape" as const, item, fallback: points.length + index })),
+      ].sort(
+        (first, second) =>
+          (first.item.editorOrder ?? first.fallback) -
+          (second.item.editorOrder ?? second.fallback),
+      );
+      const index = mixed.findIndex(
+        (entry) => entry.kind === kind && entry.item.id === id,
+      );
+      const target = mixed[index + direction];
+      if (target) reorderMixedObjects(kind, id, target.kind, target.item.id);
+    },
+    [points, reorderMixedObjects, shapes],
+  );
+
   return {
     renamePoint,
     updatePointObject,
@@ -366,5 +519,7 @@ export function useObjectEditing({
     moveShapeObject,
     reorderPointObject,
     reorderShapeObject,
+    reorderMixedObjects,
+    moveMixedObject,
   };
 }

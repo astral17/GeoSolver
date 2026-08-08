@@ -1,0 +1,74 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "t19",
+  "points": [
+    {
+      "id": "A",
+      "x": -3,
+      "y": 1.0337837837837838
+    },
+    {
+      "id": "B",
+      "x": 1.2027027027027026,
+      "y": 0.9932432432432432
+    },
+    {
+      "id": "C",
+      "x": 2.108108108108108,
+      "y": 3.6824324324324325
+    },
+    {
+      "id": "D",
+      "x": -2.2714683674916687,
+      "y": -2.5335181458321574,
+      "angle": -1.887670038547076
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785615540992",
+      "type": "ellipse",
+      "points": [
+        "A",
+        "B",
+        "C"
+      ],
+      "color": "#5b6df9",
+      "arc": "minor"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785615540992,
+      "expression": "distinct(ABC)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785615542732,
+      "expression": "D ∈ ellipse(ABC)",
+      "enabled": true,
+      "color": "#ef6b62"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785615542733,
+      "expression": "AC+CB-BD-DA = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": {
+    "x": 0,
+    "y": 0,
+    "scale": 74
+  }
+}

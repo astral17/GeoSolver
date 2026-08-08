@@ -5,6 +5,7 @@ import type {
   ParsedConstraint,
   Point,
   SolverMode,
+  SolverProgress,
   SolveResult,
 } from "./domain";
 import { equationText } from "./expressions";
@@ -21,6 +22,7 @@ type SolverPanelProps = {
   solverMaxIterations: number;
   solverTimeLimitMs: number;
   solving: boolean;
+  solverProgress: SolverProgress | null;
   t: Translate;
   formatNumber: (value: number) => string;
   runSolver: () => void;
@@ -35,6 +37,7 @@ export function SolverPanel({
   solverMaxIterations,
   solverTimeLimitMs,
   solving,
+  solverProgress,
   t,
   formatNumber,
   runSolver,
@@ -106,7 +109,7 @@ export function SolverPanel({
       )}
     </div>
   );
-  const drawingProgress = solverMode === "analytic" && result.drawing && (
+  const drawingProgress = result.drawing && (
     <div className={`drawing-progress ${result.drawing.status}`}>
       <span>
         {result.drawing.status === "rebuilt"
@@ -229,6 +232,7 @@ export function SolverPanel({
           <div
             className={`step-marker ${
               result.kind === "approximate" || hasIncompleteGoals
+                || result.kind === "inconsistent"
                 ? "warning"
                 : "complete"
             }`}
@@ -236,6 +240,7 @@ export function SolverPanel({
             {result.kind === "dirty"
               ? "…"
               : result.kind === "approximate" || hasIncompleteGoals
+                  || result.kind === "inconsistent"
                 ? "!"
                 : "✓"}
           </div>
@@ -270,6 +275,25 @@ export function SolverPanel({
                 {drawingProgress}
               </div>
             )}
+            {result.kind === "inconsistent" && (
+              <div className="result-card inconsistent-result" role="alert">
+                <span>{t("Система условий противоречива", "The constraint system is inconsistent")}</span>
+                <p>
+                  {t(
+                    "Ни один чертёж не может одновременно выполнить перечисленные условия.",
+                    "No drawing can satisfy the listed conditions at the same time.",
+                  )}
+                </p>
+                {(result.contradictions ?? []).map((contradiction, index) => (
+                  <div className="contradiction" key={index}>
+                    <p>{t(contradiction.detail.ru, contradiction.detail.en)}</p>
+                    {contradiction.expressions.map((expression) => (
+                      <code key={expression}>{expression}</code>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
             {(result.kind === "exact" ||
               result.kind === "approximate") && (
               <div
@@ -291,6 +315,9 @@ export function SolverPanel({
                     {result.iterations} {t("итер.", "iter.")}
                     {result.timedOut
                       ? ` · ${t("лимит времени", "time limit")}`
+                      : ""}
+                    {result.stopped
+                      ? ` · ${t("остановлено", "stopped")}`
                       : ""}
                   </small>
                 </div>
@@ -367,7 +394,7 @@ export function SolverPanel({
             {result.kind === "approximate" && result.issues.length > 0 && (
               <div className="issues">
                 <b>
-                  {t("Противоречивые условия", "Conflicting conditions")}
+                  {t("Наибольшие невязки", "Largest residuals")}
                 </b>
                 {result.issues.map((issue) => (
                   <div key={issue.expression}>
@@ -385,15 +412,21 @@ export function SolverPanel({
         <button
           className="solve-button"
           onClick={runSolver}
-          disabled={solving}
         >
           <span className={solving ? "spinner" : ""}>
-            {solving ? "" : "▶"}
+            {solving ? "■" : "▶"}
           </span>
           {solving
-            ? t("Ищем решение…", "Searching…")
+            ? t("Остановить", "Stop")
             : t("Решить систему", "Solve system")}
-          <kbd>Ctrl ↵</kbd>
+          {solving && solverProgress ? (
+            <small className="solver-live-progress">
+              {`${formatNumber(solverProgress.elapsed)} ${t("мс", "ms")} · `}
+              {`${solverProgress.iterations} ${t("итер.", "iter.")}`}
+            </small>
+          ) : (
+            <kbd>Ctrl ↵</kbd>
+          )}
         </button>
         <small>
           {t(

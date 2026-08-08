@@ -98,6 +98,9 @@ test("circular tools and localized modules are present", async () => {
     settings,
     tools,
     solver,
+    solverRunner,
+    solverWorker,
+    solverHook,
     analyticSolver,
     exactValue,
     expressions,
@@ -123,6 +126,9 @@ test("circular tools and localized modules are present", async () => {
     readFile(new URL("../app/settings-dialog.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/tools.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/solver.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/solver-runner.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/solver-worker.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/use-solver-worker.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/analytic-solver.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/exact-value.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/expressions.ts", import.meta.url), "utf8"),
@@ -144,6 +150,8 @@ test("circular tools and localized modules are present", async () => {
     readFile(new URL("../app/styles/responsive.css", import.meta.url), "utf8"),
     Promise.all(
       [
+        "cardioid",
+        "apollo",
         "right-triangle",
         "square-area",
         "major-sector",
@@ -167,6 +175,22 @@ test("circular tools and localized modules are present", async () => {
         "inconsistent-altitude-t3",
         "right-triangle-altitude-t4",
         "intersecting-sectors-t5",
+        "task-t",
+        "t18",
+        "t17",
+        "t16",
+        "t15",
+        "t14",
+        "t13",
+        "runaway-polygon",
+        "t12",
+        "t11",
+        "this-is-a-trap",
+        "power-chords",
+        "all-born-equal",
+        "beautiful-haircut",
+        "sunset-square-city",
+        "t19",
       ].map((name) =>
         readFile(
           new URL(`../public/examples/${name}.json`, import.meta.url),
@@ -198,6 +222,12 @@ test("circular tools and localized modules are present", async () => {
   assert.match(geometry, /geometryIntersectionArea/);
   assert.match(geometry, /linearIntersection/);
   assert.match(expressions, /parseIntersectionConstraint/);
+  assert.match(solverHook, /new Worker\(new URL\("\.\/solver-worker\.ts"/);
+  assert.match(solverWorker, /type: "progress"/);
+  assert.match(solverRunner, /request\.timeLimitMs - \(performance\.now\(\) - startedAt\)/);
+  assert.match(examples, /PROJECT_EXAMPLE_CATEGORIES/);
+  assert.match(examples, /id: "equations"/);
+  assert.match(examples, /new Set\(\["cardioid", "apollo"\]\)/);
   assert.match(expressions, /export function locateObjectIntersections/);
   assert.match(expressions, /parseIntersectionPointSet/);
   assert.match(expressions, /parseContainmentConstraint/);
@@ -216,6 +246,9 @@ test("circular tools and localized modules are present", async () => {
   assert.match(geometry, /projectPointToArc/);
   assert.match(interactions, /cycleOnClick/);
   assert.match(interactions, /cycleCandidates/);
+  assert.match(interactions, /activeTool === "setArea"/);
+  assert.match(interactions, /pendingPoints\.includes\(id\)/);
+  assert.doesNotMatch(interactions, /shapeReference/);
   assert.match(page, /findPointsAt/);
   assert.match(conditions, /Описание чертежа/);
   assert.match(conditions, /ObjectsSection/);
@@ -238,8 +271,17 @@ test("circular tools and localized modules are present", async () => {
   assert.match(objects, /object-inline-error/);
   assert.match(objects, /onValidationChange/);
   assert.match(objects, /onSelectPoints\(shape\.points\)/);
-  assert.match(objects, /EditorGroupDropZone/);
+  assert.doesNotMatch(objects, /EditorGroupDropZone/);
   assert.match(objects, /catalogBuckets/);
+  assert.match(objects, /buildGroupedEntries\(catalogItems, groups\)/);
+  assert.match(objects, /EditorGroupBoundaryDropZone/);
+  assert.match(objects, /commitObjectMove/);
+  assert.match(objects, /moveObjectStep/);
+  assert.match(objects, /moveEditorRowOneStep/);
+  assert.match(objects, /type: "equation"/);
+  assert.doesNotMatch(objects, /type: "equationLine"/);
+  assert.doesNotMatch(objects, /type: "equationRegion"/);
+  assert.match(objects, /shadowedEquationVariables/);
   assert.doesNotMatch(objects, /SHAPE_TYPES\.filter/);
   assert.match(objects, /object-visibility/);
   assert.match(objects, /event\.altKey/);
@@ -248,6 +290,7 @@ test("circular tools and localized modules are present", async () => {
   assert.match(renderer, /point\.visible === false/);
   assert.match(renderer, /isReferenceVisible/);
   assert.match(renderer, /isReferenceVisible\(mark\.ids\)/);
+  assert.match(renderer, /compileImplicitEquation/);
   assert.match(hitTesting, /point\.visible !== false/);
   assert.match(domain, /visible\?: boolean/);
   assert.match(domain, /export type EditorGroup/);
@@ -284,6 +327,13 @@ test("circular tools and localized modules are present", async () => {
   assert.match(foundations, /\.object-row:focus-within/);
   assert.match(foundations, /\.editor-group-header/);
   assert.match(foundations, /\.expression-row:focus-within \.row-delete/);
+  assert.match(
+    foundations,
+    /\.tool-rail\s*\{[\s\S]*?z-index:\s*50/,
+  );
+  assert.match(renderer, /equationQualityRef/);
+  assert.match(renderer, /draftEquation/);
+  assert.match(renderer, /setTimeout\([\s\S]*?,\s*70\)/);
   assert.match(responsive, /@media \(hover: none\), \(pointer: coarse\)/);
   exampleFiles.forEach((source) => {
     const project = JSON.parse(source);
@@ -316,12 +366,14 @@ test("circular tools and localized modules are present", async () => {
   assert.match(conditions, /useEditorGroupReordering/);
   assert.match(editorGroups, /buildGroupedEntries/);
   assert.match(editorGroups, /EditorGroupHeader/);
-  assert.match(editorGroups, /EditorGroupDropZone/);
+  assert.doesNotMatch(editorGroups, /EditorGroupDropZone/);
   assert.match(editorGroups, /focusAdjacentEditorEntry/);
+  assert.match(editorGroups, /moveEditorRowOneStep/);
   assert.match(editorGroups, /data-editor-navigation-kind="group"/);
   assert.match(editorGroups, /editor-group-drag-handle/);
   assert.match(editorGroups, /editor-group-chevron/);
-  assert.match(editorGroups, /emitAnchoredGroups/);
+  assert.match(editorGroups, /emitContainer/);
+  assert.match(editorGroups, /parentGroupId/);
   assert.match(groupReordering, /repositionExpressionGroup/);
   assert.match(groupReordering, /repositionExpressionGroupNearRow/);
   assert.match(groupReordering, /anchorSide: placeAfter/);
@@ -330,6 +382,19 @@ test("circular tools and localized modules are present", async () => {
   assert.match(groupReordering, /data-expression-row/);
   assert.match(groupReordering, /groupDragHandleProps/);
   assert.match(groupReordering, /moveEditorGroup/);
+  assert.match(groupReordering, /normalizeGroupSection/);
+  assert.match(groupReordering, /commitGroupMove/);
+  assert.match(groupReordering, /advanceGroupDown/);
+  assert.match(groupReordering, /boundaryGroupId === source\.parentGroupId/);
+  assert.match(groupReordering, /dragStepRef/);
+  assert.match(groupReordering, /groupSiblingTokens/);
+  assert.match(groupReordering, /direction < 0 \? "last" : "first"/);
+  assert.match(groupReordering, /if \(candidateId === ancestorId\) return true/);
+  assert.match(groupReordering, /if \(hitsOwnContent\)/);
+  assert.match(groupReordering, /ordered-object/);
+  assert.match(groupReordering, /exit-on-content/);
+  assert.doesNotMatch(groupReordering, /editor-group-drag-ghost/);
+  assert.match(groupReordering, /groupsRef\.current/);
   assert.match(objects, /data-editor-navigation-kind="object"/);
   assert.doesNotMatch(page, /addKnownExpression\("a \+ b = c"\)/);
   assert.match(settings, /onLocaleChange/);
@@ -344,8 +409,8 @@ test("circular tools and localized modules are present", async () => {
   assert.match(solver, /export function solveCoordinates/);
   assert.match(solver, /solveLinearSystem/);
   assert.match(solver, /timeLimitMs/);
-  assert.match(page, /solveAnalytically/);
-  assert.match(page, /solverMode === "analytic"/);
+  assert.match(solverRunner, /solveAnalytically/);
+  assert.match(solverRunner, /request\.mode === "analytic"/);
   assert.match(analyticSolver, /export function solveAnalytically/);
   assert.match(analyticSolver, /Pythagorean theorem/);
   assert.match(exactValue, /export function formatExact/);
@@ -410,18 +475,27 @@ test("polyline, focused constraints and PWA assets are present", async () => {
   assert.match(interactions, /onAddFocusedKnown/);
   assert.match(renderer, /shape\.type === "polyline"/);
   assert.match(groups, /kind: "groupEnd"/);
+  assert.match(groups, /materializeEditorOrder/);
+  assert.match(groups, /moveEditorRow/);
+  assert.match(groups, /moveEditorGroupByOrder/);
+  assert.match(groups, /targetIndex < 0/);
   assert.match(groups, /data-editor-group-collapsed/);
   assert.match(groups, /data-editor-group-boundary="after"/);
   assert.doesNotMatch(groups, /data-editor-group-boundary="before"/);
-  assert.match(groups, /!group\.collapsed && groupItems\.length > 0/);
+  assert.match(groups, /if \(token\.group\.collapsed\) return/);
+  assert.match(groups, /emitContainer\(token\.group\.id, depth \+ 1\)/);
   assert.match(reordering, /lastDragZoneRef/);
+  assert.match(reordering, /dragAnchorRef/);
+  assert.doesNotMatch(reordering, /bounds\.top \+ 54/);
   assert.match(reordering, /draggedMembershipRef/);
+  assert.match(reordering, /commitOrderedMove/);
+  assert.match(reordering, /pointerDirection < 0/);
   assert.match(reordering, /placeExpressionAfterGroup/);
   assert.match(reordering, /placeExpressionBeforeGroup/);
   assert.match(reordering, /placeExpressionAcrossEmptyGroup/);
   assert.match(reordering, /enterExpressionGroup/);
   assert.match(reordering, /memberIndices\[memberIndices\.length - 1\] \+ 1/);
-  assert.match(reordering, /targetEntry\.kind === "group"/);
+  assert.match(reordering, /moveEditorRowOneStep/);
   assert.match(
     reordering,
     /draggedMembershipRef\.current === targetGroupId[\s\S]*?placeExpressionAfterGroup[\s\S]*?enterExpressionGroup\(group, id, targetGroupId, "last"\)/,

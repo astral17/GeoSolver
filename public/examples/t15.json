@@ -1,0 +1,170 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "t15",
+  "points": [
+    {
+      "id": "A",
+      "x": -7.581644729200498,
+      "y": -0.3781685947629788
+    },
+    {
+      "id": "F",
+      "x": 1.0220433218401852,
+      "y": 2.8126419132929548
+    },
+    {
+      "id": "C",
+      "x": 8.699241926607343,
+      "y": -8.938917677434993
+    },
+    {
+      "id": "Q",
+      "x": -0.243715403333112,
+      "y": 2.343215753374259
+    },
+    {
+      "id": "W",
+      "x": 2.1514986277649237,
+      "y": 1.0837741300128891
+    },
+    {
+      "id": "E",
+      "x": 0.9032208462660382,
+      "y": 0.8962796530544314
+    },
+    {
+      "id": "B",
+      "x": 0.55879860014864,
+      "y": -4.658543137036494
+    },
+    {
+      "id": "D",
+      "x": 0.9538916123861788,
+      "y": 1.7134949415996934
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785610778332",
+      "type": "polygon",
+      "points": [
+        "A",
+        "F",
+        "C"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785610786828",
+      "type": "segment",
+      "points": [
+        "Q",
+        "W"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785610790283",
+      "type": "segment",
+      "points": [
+        "W",
+        "A"
+      ],
+      "color": "#26a880"
+    },
+    {
+      "id": "shape-1785610792015",
+      "type": "segment",
+      "points": [
+        "Q",
+        "C"
+      ],
+      "color": "#f0a11b"
+    },
+    {
+      "id": "shape-1785610841603",
+      "type": "segment",
+      "points": [
+        "F",
+        "B"
+      ],
+      "color": "#8c5ad7"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785610778332,
+      "expression": "distinct(AFC)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785610780389,
+      "expression": "Q ∈ AF",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785610781131,
+      "expression": "W ∈ FC",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785610793799,
+      "expression": "E = segment(QC) ∩ segment(WA)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785610835299,
+      "expression": "B ∈ CA",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785610844164,
+      "expression": "D = segment(QW) ∩ segment(FB)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785610844165,
+      "expression": "E ∈ BF",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785610844170,
+      "expression": "AC ∥ QW",
+      "enabled": true,
+      "color": "#26a880"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785610844168,
+      "expression": "QD - DW = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785610844169,
+      "expression": "AB - BC = ?",
+      "enabled": true,
+      "color": "#ef6b62"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": {
+    "x": -88.02962065302587,
+    "y": -75.80880617295162,
+    "scale": 44.88326881873488
+  }
+}

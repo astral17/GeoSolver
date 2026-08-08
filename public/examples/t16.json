@@ -1,0 +1,114 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "t16",
+  "points": [
+    {
+      "id": "A",
+      "x": 0.33915007837937533,
+      "y": 1.0128587718417557
+    },
+    {
+      "id": "B",
+      "x": -0.1286354837154402,
+      "y": -2.1836759024728174
+    },
+    {
+      "id": "C",
+      "x": -2.8776908436075828,
+      "y": 0.7152151278144927,
+      "angle": -3.0493286612522468
+    },
+    {
+      "id": "D",
+      "x": 2.1785952847083148,
+      "y": 3.668625815298922,
+      "angle": 0.9650385798775751
+    },
+    {
+      "id": "E",
+      "x": 3.5167387824350866,
+      "y": 0.4301175908211581,
+      "angle": -0.1813755686323089
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785611419458",
+      "type": "circle",
+      "points": [
+        "A",
+        "B"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785611431276",
+      "type": "polygon",
+      "points": [
+        "B",
+        "C",
+        "D",
+        "E"
+      ],
+      "color": "#ef6b62"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785611421502,
+      "expression": "C ∈ circle(AB)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785611424088,
+      "expression": "D ∈ circle(AB)",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785611425043,
+      "expression": "E ∈ circle(AB)",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785611431276,
+      "expression": "distinct(BCDE)",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785611431277,
+      "expression": "BC ∩ DE = ∅",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785611431278,
+      "expression": "CD ∩ EB = ∅",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785611431279,
+      "expression": "∠CBE + ∠CDE = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": {
+    "x": -66.45049793359502,
+    "y": -46.56074948775078,
+    "scale": 89.78472916504211
+  }
+}

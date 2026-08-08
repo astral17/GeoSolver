@@ -19,6 +19,7 @@ export type SolverOptions = {
   maxIterations: number;
   timeLimitMs: number;
   restartCount?: number;
+  onProgress?: (progress: CoordinateSearchResult) => void;
 };
 
 function rootMeanSquare(errors: number[]) {
@@ -83,7 +84,7 @@ export function solveCoordinates(
 ): CoordinateSearchResult {
   const startedAt = performance.now();
   const deadline =
-    startedAt + Math.max(50, Math.min(options.timeLimitMs, 60_000));
+    startedAt + Math.max(1, Math.min(options.timeLimitMs, 60_000));
   const maxIterations = Math.max(
     1,
     Math.min(Math.floor(options.maxIterations), 100_000),
@@ -124,6 +125,7 @@ export function solveCoordinates(
   let stableSelectionScore = bestScore;
   let iterations = 0;
   let timedOut = false;
+  let lastProgressAt = startedAt - 100;
   // The public tolerance decides whether a system is acceptable. Keep
   // polishing a valid solution beyond that threshold: derived values such as
   // an area can amplify a tiny coordinate error and otherwise expose several
@@ -176,6 +178,25 @@ export function solveCoordinates(
       stableBestScore = score;
       stableBest = [...values];
       stableBestErrors = [...errors];
+    }
+    const now = performance.now();
+    if (options.onProgress && now - lastProgressAt >= 80) {
+      lastProgressAt = now;
+      const progressValues = bestScore <= tolerance ** 2 ? best : stableBest;
+      const progressErrors = bestScore <= tolerance ** 2
+        ? bestErrors
+        : stableBestErrors;
+      const progressMap = unpack(progressValues);
+      options.onProgress({
+        points: ids.map((id) => progressMap.get(id) as SolverPoint),
+        errors: progressErrors.map(Math.abs),
+        residual: Math.sqrt(
+          bestScore <= tolerance ** 2 ? bestScore : stableBestScore,
+        ),
+        elapsed: now - startedAt,
+        iterations,
+        timedOut: false,
+      });
     }
   };
   const baselineIterationLimit = Math.max(
@@ -313,7 +334,7 @@ export function solveCoordinates(
   const finalScore = useExactBest ? bestScore : stableBestScore;
   const solvedMap = unpack(finalValues);
   const errors = finalErrors.map(Math.abs);
-  return {
+  const result = {
     points: ids.map((id) => solvedMap.get(id) as SolverPoint),
     errors,
     residual: Math.sqrt(finalScore),
@@ -321,4 +342,6 @@ export function solveCoordinates(
     iterations,
     timedOut,
   };
+  options.onProgress?.(result);
+  return result;
 }

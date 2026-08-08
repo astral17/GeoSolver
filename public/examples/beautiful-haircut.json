@@ -1,0 +1,315 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "Красивая стрижка",
+  "points": [
+    {
+      "id": "A",
+      "x": 2.5185254725763184,
+      "y": -0.7785645128055534
+    },
+    {
+      "id": "B",
+      "x": 2.0707369360247583,
+      "y": 4.5693748427329135
+    },
+    {
+      "id": "C",
+      "x": 7.41867629156581,
+      "y": 5.017163379257655
+    },
+    {
+      "id": "D",
+      "x": 7.866464828116818,
+      "y": -0.33077597628040095
+    },
+    {
+      "id": "E",
+      "x": 2.1453746421929836,
+      "y": 3.677976573936163
+    },
+    {
+      "id": "F",
+      "x": -1.9380156141638674,
+      "y": -1.1517153431867153
+    },
+    {
+      "id": "G",
+      "x": -2.3111664445495794,
+      "y": 3.3048257435534487
+    },
+    {
+      "id": "H",
+      "x": -2.1245910293579917,
+      "y": 1.0765552001828302
+    },
+    {
+      "id": "I",
+      "x": -4.166286157532696,
+      "y": -1.3382907583828472
+    },
+    {
+      "id": "J",
+      "x": -4.352861572727324,
+      "y": 0.8899797849862936
+    },
+    {
+      "id": "K",
+      "x": -4.539436987919728,
+      "y": 3.118250328356763
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785616039439",
+      "type": "polygon",
+      "points": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "color": "#5b6df9"
+    },
+    {
+      "id": "shape-1785616048020",
+      "type": "polygon",
+      "points": [
+        "A",
+        "F",
+        "G",
+        "E"
+      ],
+      "color": "#ef6b62"
+    },
+    {
+      "id": "shape-1785616057868",
+      "type": "polygon",
+      "points": [
+        "F",
+        "I",
+        "J",
+        "H"
+      ],
+      "color": "#26a880"
+    },
+    {
+      "id": "shape-1785616061316",
+      "type": "polygon",
+      "points": [
+        "J",
+        "K",
+        "G",
+        "H"
+      ],
+      "color": "#f0a11b"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785616039439,
+      "expression": "AB = BC = CD = DA",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785616039440,
+      "expression": "AB ∥ CD",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785616039441,
+      "expression": "BC ∥ DA",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785616039442,
+      "expression": "∠DAB = 90°",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785616039443,
+      "expression": "distinct(ABCD)",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785616039444,
+      "expression": "AB ∩ CD = ∅",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785616039445,
+      "expression": "BC ∩ DA = ∅",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785616040945,
+      "expression": "E ∈ AB",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785616048020,
+      "expression": "AF = FG = GE = EA",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785616048021,
+      "expression": "AF ∥ GE",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785616048022,
+      "expression": "FG ∥ EA",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785616048023,
+      "expression": "∠EAF = 90°",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785616048024,
+      "expression": "distinct(AFGE)",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785616048025,
+      "expression": "AF ∩ GE = ∅",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785616048026,
+      "expression": "FG ∩ EA = ∅",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785616051809,
+      "expression": "H ∈ FG",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785616057868,
+      "expression": "FI = IJ = JH = HF",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785616057869,
+      "expression": "FI ∥ JH",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785616057870,
+      "expression": "IJ ∥ HF",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785616057871,
+      "expression": "∠HFI = 90°",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785616057872,
+      "expression": "distinct(FIJH)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785616057873,
+      "expression": "FI ∩ JH = ∅",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785616057874,
+      "expression": "IJ ∩ HF = ∅",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785616061316,
+      "expression": "JK = KG = GH = HJ",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785616061317,
+      "expression": "JK ∥ GH",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785616061318,
+      "expression": "KG ∥ HJ",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785616061319,
+      "expression": "∠HJK = 90°",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785616061320,
+      "expression": "distinct(JKGH)",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785616061321,
+      "expression": "JK ∩ GH = ∅",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785616061322,
+      "expression": "KG ∩ HJ = ∅",
+      "enabled": true,
+      "color": "#8c5ad7"
+    },
+    {
+      "id": 1785616075010,
+      "expression": "S(IJHF) = 5",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785616075011,
+      "expression": "S(JGC) = ?",
+      "enabled": true,
+      "color": "#5b6df9"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": {
+    "x": 0,
+    "y": 0,
+    "scale": 74
+  }
+}

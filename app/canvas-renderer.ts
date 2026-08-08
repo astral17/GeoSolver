@@ -1,10 +1,12 @@
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 import type {
+  AngleUnit,
   CanvasDrag,
   CanvasView,
   ExpressionRow,
   Measurement,
+  MathNode,
   ParsedConstraint,
   Point,
   Shape,
@@ -19,10 +21,15 @@ import {
   resolveArcEnd,
   traceRightAngleMarker,
 } from "./geometry";
-import { parseUnknown } from "./expressions";
+import {
+  compileImplicitEquation,
+  evaluateImplicitEquation,
+  parseUnknown,
+} from "./expressions";
 import type { ToolId } from "./tools";
 
 type CanvasRendererOptions = {
+  angleUnit: AngleUnit;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   canvasSize: { width: number; height: number };
   theme: "light" | "dark";
@@ -52,6 +59,7 @@ type CanvasRendererOptions = {
 export function useCanvasRenderer(options: CanvasRendererOptions) {
   const {
     activeTool,
+    angleUnit,
     canvasRef,
     canvasSize,
     drag,
@@ -73,6 +81,35 @@ export function useCanvasRenderer(options: CanvasRendererOptions) {
     view,
     worldToScreen,
   } = options;
+
+  const equationQualityRef = useRef<"draft" | "refined">("refined");
+  const equationRefineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const [equationRefinementRevision, setEquationRefinementRevision] =
+    useState(0);
+
+  // A view or point change must never wait for a dense implicit-curve pass
+  // before the canvas can follow the pointer. Draw a coarse grid immediately,
+  // then refine after input has been idle, even if the pointer remains held.
+  // This effect intentionally precedes the drawing effect: both run after the
+  // same render, so the mutable quality flag is already "draft" when painting.
+  useEffect(() => {
+    equationQualityRef.current = "draft";
+    if (equationRefineTimerRef.current) {
+      clearTimeout(equationRefineTimerRef.current);
+    }
+    equationRefineTimerRef.current = setTimeout(() => {
+      equationQualityRef.current = "refined";
+      setEquationRefinementRevision((revision) => revision + 1);
+    }, 70);
+    return () => {
+      if (equationRefineTimerRef.current) {
+        clearTimeout(equationRefineTimerRef.current);
+        equationRefineTimerRef.current = null;
+      }
+    };
+  }, [parsedKnown, points, shapes, unknown, view.x, view.y, view.scale]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -152,6 +189,15 @@ export function useCanvasRenderer(options: CanvasRendererOptions) {
     context.stroke();
 
     const map = pointMap(points);
+    const equationVariables = new Map<string, MathNode>();
+    parsedKnown.forEach((row) => {
+      if (row.parsed?.kind === "definition" && row.parsed.definition) {
+        equationVariables.set(
+          row.parsed.definition.name,
+          row.parsed.definition.value,
+        );
+      }
+    });
     const isReferenceVisible = (ids: string[]) => {
       const uniqueIds = [...new Set(ids)];
       if (
@@ -169,6 +215,145 @@ export function useCanvasRenderer(options: CanvasRendererOptions) {
     };
     shapes.forEach((shape) => {
       if (shape.visible === false) return;
+      if (shape.type === "equation") {
+        const equation = compileImplicitEquation(shape.equation ?? "");
+        if (!equation) return;
+        const draftEquation = equationQualityRef.current === "draft";
+        // Implicit curves need a denser grid than ordinary construction
+        // geometry, especially near cusps and self-touching branches.
+        const refinedStep = Math.max(
+          4,
+          Math.min(9, 400 / Math.max(view.scale, 1)),
+        );
+        const step = draftEquation
+          ? Math.max(15, Math.min(30, refinedStep * 3.25))
+          : refinedStep;
+        const columns = Math.ceil(canvasSize.width / step);
+        const rows = Math.ceil(canvasSize.height / step);
+        const valueAt = (screenX: number, screenY: number) => {
+          const world = {
+            x: (screenX - originX) / view.scale,
+            y: -(screenY - originY) / view.scale,
+          };
+          return evaluateImplicitEquation(
+            equation,
+            world,
+            map,
+            equationVariables,
+            angleUnit,
+            shapes,
+          );
+        };
+        const values = Array.from({ length: rows + 1 }, (_, row) =>
+          Array.from({ length: columns + 1 }, (_, column) =>
+            valueAt(column * step, row * step),
+          ),
+        );
+        if (equation.operator !== "=") {
+          context.fillStyle = `${shape.color}16`;
+          for (let row = 0; row < rows; row += 1) {
+            for (let column = 0; column < columns; column += 1) {
+              const center = draftEquation
+                ? values[row][column]
+                : valueAt(
+                    (column + 0.5) * step,
+                    (row + 0.5) * step,
+                  );
+              if (center.valid && center.inside) {
+                context.fillRect(column * step, row * step, step + 0.5, step + 0.5);
+              }
+            }
+          }
+        }
+        const interpolate = (
+          first: { x: number; y: number; value: number },
+          second: { x: number; y: number; value: number },
+        ) => {
+          if (Math.abs(first.value) < 1e-12) return { x: first.x, y: first.y };
+          if (Math.abs(second.value) < 1e-12) return { x: second.x, y: second.y };
+          let low = first;
+          let high = second;
+          const interpolationIterations = draftEquation ? 1 : 5;
+          for (
+            let iteration = 0;
+            iteration < interpolationIterations;
+            iteration += 1
+          ) {
+            const middle = {
+              x: (low.x + high.x) / 2,
+              y: (low.y + high.y) / 2,
+              value: 0,
+            };
+            middle.value = valueAt(middle.x, middle.y).difference;
+            if (!Number.isFinite(middle.value)) break;
+            if ((low.value < 0) === (middle.value < 0)) low = middle;
+            else high = middle;
+          }
+          return {
+            x: (low.x + high.x) / 2,
+            y: (low.y + high.y) / 2,
+          };
+        };
+        context.beginPath();
+        for (let row = 0; row < rows; row += 1) {
+          for (let column = 0; column < columns; column += 1) {
+            const corners = [
+              { x: column * step, y: row * step, value: values[row][column].difference },
+              { x: (column + 1) * step, y: row * step, value: values[row][column + 1].difference },
+              { x: (column + 1) * step, y: (row + 1) * step, value: values[row + 1][column + 1].difference },
+              { x: column * step, y: (row + 1) * step, value: values[row + 1][column].difference },
+            ];
+            if (corners.some((corner) => !Number.isFinite(corner.value))) continue;
+            const crossings: { x: number; y: number }[] = [];
+            for (let edge = 0; edge < 4; edge += 1) {
+              const first = corners[edge];
+              const second = corners[(edge + 1) % 4];
+              if (
+                first.value === 0 ||
+                second.value === 0 ||
+                (first.value < 0) !== (second.value < 0)
+              ) {
+                const crossing = interpolate(first, second);
+                if (
+                  crossings.every(
+                    (candidate) =>
+                      Math.hypot(
+                        candidate.x - crossing.x,
+                        candidate.y - crossing.y,
+                      ) > 0.35,
+                  )
+                ) crossings.push(crossing);
+              }
+            }
+            if (crossings.length >= 2) {
+              if (crossings.length === 4) {
+                const centerValue = valueAt(
+                  (column + 0.5) * step,
+                  (row + 0.5) * step,
+                ).difference;
+                const sameAsFirst =
+                  (centerValue < 0) === (corners[0].value < 0);
+                const pairs = sameAsFirst
+                  ? [[0, 1], [2, 3]]
+                  : [[3, 0], [1, 2]];
+                pairs.forEach(([first, second]) => {
+                  context.moveTo(crossings[first].x, crossings[first].y);
+                  context.lineTo(crossings[second].x, crossings[second].y);
+                });
+              } else {
+                context.moveTo(crossings[0].x, crossings[0].y);
+                context.lineTo(crossings[1].x, crossings[1].y);
+              }
+            }
+          }
+        }
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 2.4;
+        context.strokeStyle = shape.color;
+        context.stroke();
+        return;
+      }
       const shapePoints = shape.points
         .map((id) => map.get(id))
         .filter((point): point is Point => Boolean(point));
@@ -756,10 +941,12 @@ export function useCanvasRenderer(options: CanvasRendererOptions) {
     }
   }, [
     activeTool,
+    angleUnit,
     canvasRef,
     canvasSize,
     drag,
     equalSideMarks,
+    equationRefinementRevision,
     formatNumber,
     measurements,
     parsedKnown,

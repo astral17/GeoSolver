@@ -4,6 +4,7 @@ export type Point = {
   y: number;
   visible?: boolean;
   groupId?: string;
+  editorOrder?: number;
 };
 
 export type ArcMode = "minor" | "major" | "clockwise";
@@ -19,12 +20,18 @@ export type Shape = {
     | "ellipse"
     | "sector"
     | "circularSegment"
-    | "polygon";
+    | "polygon"
+    | "equation";
   points: string[];
   color: string;
+  /** User-facing identifier used by S(), distance() and set expressions. */
+  name?: string;
+  /** Implicit equation in local coordinates x and y. */
+  equation?: string;
   arc?: ArcMode;
   visible?: boolean;
   groupId?: string;
+  editorOrder?: number;
 };
 
 export type Measurement = {
@@ -40,7 +47,8 @@ export type GeometryKind =
   | "circle"
   | "ellipse"
   | "sector"
-  | "circularSegment";
+  | "circularSegment"
+  | "equation";
 
 export type ExpressionRow = {
   id: number;
@@ -48,6 +56,7 @@ export type ExpressionRow = {
   enabled: boolean;
   color: string;
   groupId?: string;
+  editorOrder?: number;
 };
 
 export type EditorGroup = {
@@ -57,6 +66,8 @@ export type EditorGroup = {
   collapsed?: boolean;
   anchorId?: string;
   anchorSide?: "before" | "after";
+  parentGroupId?: string;
+  editorOrder?: number;
 };
 
 export type DistanceObject = {
@@ -69,19 +80,31 @@ export type DistanceObject = {
     | "ellipse"
     | "sector"
     | "circularSegment"
-    | "polygon";
+    | "polygon"
+    | "equation";
   ids: string[];
+  name?: string;
+  point?: MathPointNode;
+  pointArguments?: MathPointNode[];
+};
+
+export type MathPointNode = {
+  kind: "point";
+  x: MathNode;
+  y: MathNode;
 };
 
 export type MathNode =
   | { kind: "number"; value: number }
   | { kind: "variable"; name: string }
+  | MathPointNode
   | {
       kind: "measure";
       measure:
         | "distance"
         | "objectDistance"
         | "intersectionArea"
+        | "setArea"
         | "angle"
         | "area"
         | "perimeter"
@@ -91,6 +114,9 @@ export type MathNode =
       geometry?: GeometryKind;
       objects?: [DistanceObject, DistanceObject];
       geometries?: [GeometryReference, GeometryReference];
+      shapeName?: string;
+      set?: SetExpression;
+      pointArguments?: MathPointNode[];
     }
   | { kind: "unary"; operator: "+" | "-"; value: MathNode }
   | {
@@ -131,6 +157,7 @@ export type VariableDefinition = {
 
 export type IntersectionObject = {
   kind:
+    | "point"
     | "auto"
     | "segment"
     | "line"
@@ -139,19 +166,33 @@ export type IntersectionObject = {
     | "ellipse"
     | "sector"
     | "circularSegment"
-    | "polygon";
+    | "polygon"
+    | "equation";
   ids: string[];
+  name?: string;
+  pointArguments?: MathPointNode[];
 };
 
 export type GeometryReference = {
   kind: GeometryKind;
   ids: string[];
+  name?: string;
+  pointArguments?: MathPointNode[];
 };
 
 export type ContainmentReference = {
   kind: GeometryKind | "point";
   ids: string[];
+  name?: string;
+  pointArguments?: MathPointNode[];
 };
+
+export type SetExpression =
+  | { kind: "object"; object: IntersectionObject }
+  | {
+      kind: "intersection" | "union";
+      operands: SetExpression[];
+    };
 
 export type FigureContainment = {
   inner: ContainmentReference;
@@ -165,9 +206,11 @@ export type DisjointDefinition = {
 
 export type IntersectionDefinition = {
   points: string[];
+  members?: ContainmentReference[];
   relation: "equals" | "contains";
   first: IntersectionObject;
   second: IntersectionObject;
+  set?: SetExpression;
 };
 
 export type ParsedConstraint = {
@@ -236,11 +279,12 @@ export type ProofResult = {
 };
 
 export type SolveResult = {
-  kind: "exact" | "approximate" | "dirty" | "empty";
+  kind: "exact" | "approximate" | "inconsistent" | "dirty" | "empty";
   residual: number;
   elapsed: number;
   iterations: number;
   timedOut: boolean;
+  stopped?: boolean;
   values: {
     label: string;
     value: number;
@@ -263,6 +307,18 @@ export type SolveResult = {
     timedOut: boolean;
   };
   issues: { expression: string; error: number }[];
+  contradictions?: {
+    expressions: string[];
+    detail: LocalizedText;
+  }[];
+};
+
+export type SolverProgress = {
+  points: Point[];
+  residual: number;
+  elapsed: number;
+  iterations: number;
+  phase: "preparing" | "searching" | "finishing";
 };
 
 export type DrawingSnapshot = {

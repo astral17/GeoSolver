@@ -109,7 +109,7 @@ function isImportedPoint(value: unknown): value is Point {
   return (
     isRecord(value) &&
     typeof value.id === "string" &&
-    /^[A-Z][A-Z0-9]*$/.test(value.id) &&
+    /^[A-Z]\d*$/.test(value.id) &&
     typeof value.x === "number" &&
     Number.isFinite(value.x) &&
     Math.abs(value.x) <= 1_000_000 &&
@@ -117,7 +117,10 @@ function isImportedPoint(value: unknown): value is Point {
     Number.isFinite(value.y) &&
     Math.abs(value.y) <= 1_000_000 &&
     (value.visible === undefined || typeof value.visible === "boolean") &&
-    (value.groupId === undefined || typeof value.groupId === "string")
+    (value.groupId === undefined || typeof value.groupId === "string") &&
+    (value.editorOrder === undefined ||
+      (typeof value.editorOrder === "number" &&
+        Number.isFinite(value.editorOrder)))
   );
 }
 
@@ -129,7 +132,10 @@ function isImportedShape(value: unknown): value is Shape {
     !value.points.every((id) => typeof id === "string") ||
     !isSafeColor(value.color) ||
     (value.visible !== undefined && typeof value.visible !== "boolean") ||
-    (value.groupId !== undefined && typeof value.groupId !== "string")
+    (value.groupId !== undefined && typeof value.groupId !== "string") ||
+    (value.editorOrder !== undefined &&
+      (typeof value.editorOrder !== "number" ||
+        !Number.isFinite(value.editorOrder)))
   ) {
     return false;
   }
@@ -145,9 +151,21 @@ function isImportedShape(value: unknown): value is Shape {
       "sector",
       "circularSegment",
       "polygon",
+      "equation",
     ].includes(type)
   ) {
     return false;
+  }
+  if (type === "equation") {
+    return (
+      value.points.length === 0 &&
+      typeof value.name === "string" &&
+      /^[A-Za-z_][A-Za-z0-9_]*$/.test(value.name) &&
+      value.name.length <= 40 &&
+      typeof value.equation === "string" &&
+      value.equation.length > 0 &&
+      value.equation.length <= 2000
+    );
   }
   if (type === "polygon") return value.points.length >= 3;
   if (type === "polyline") return value.points.length >= 2;
@@ -191,7 +209,10 @@ function isImportedExpression(value: unknown): value is ExpressionRow {
     value.expression.length <= 5000 &&
     typeof value.enabled === "boolean" &&
     isSafeColor(value.color) &&
-    (value.groupId === undefined || typeof value.groupId === "string")
+    (value.groupId === undefined || typeof value.groupId === "string") &&
+    (value.editorOrder === undefined ||
+      (typeof value.editorOrder === "number" &&
+        Number.isFinite(value.editorOrder)))
   );
 }
 
@@ -210,7 +231,13 @@ function isImportedGroup(value: unknown): value is EditorGroup {
       (typeof value.anchorId === "string" && value.anchorId.length <= 120)) &&
     (value.anchorSide === undefined ||
       value.anchorSide === "before" ||
-      value.anchorSide === "after")
+      value.anchorSide === "after") &&
+    (value.parentGroupId === undefined ||
+      (typeof value.parentGroupId === "string" &&
+        value.parentGroupId.length <= 120)) &&
+    (value.editorOrder === undefined ||
+      (typeof value.editorOrder === "number" &&
+        Number.isFinite(value.editorOrder)))
   );
 }
 
@@ -276,9 +303,23 @@ export function parseImportedProject(source: string): ImportedProject {
 
   const pointIds = new Set(data.points.map((point) => point.id));
   const groupIds = new Set(groups.map((group) => group.id));
+  const groupById = new Map(groups.map((group) => [group.id, group]));
+  const hasInvalidGroupParent = groups.some((group) => {
+    const seen = new Set([group.id]);
+    let parentId = group.parentGroupId;
+    while (parentId) {
+      if (seen.has(parentId)) return true;
+      seen.add(parentId);
+      const parent = groupById.get(parentId);
+      if (!parent || parent.section !== group.section) return true;
+      parentId = parent.parentGroupId;
+    }
+    return false;
+  });
   if (
     pointIds.size !== data.points.length ||
     groupIds.size !== groups.length ||
+    hasInvalidGroupParent ||
     data.shapes.some((shape) =>
       shape.points.some((pointId) => !pointIds.has(pointId)),
     ) ||

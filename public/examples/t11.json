@@ -1,0 +1,91 @@
+{
+  "format": "geosolver",
+  "version": 4,
+  "projectTitle": "t11",
+  "points": [
+    {
+      "id": "A",
+      "x": -0.7053614994463978,
+      "y": 0.39525048119327844
+    },
+    {
+      "id": "B",
+      "x": -0.7067340594254901,
+      "y": 1.3952495392400726
+    },
+    {
+      "id": "C",
+      "x": -0.14102871697704206,
+      "y": 1.0696738747155514
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape-1785609311996",
+      "type": "polygon",
+      "points": [
+        "A",
+        "B",
+        "C"
+      ],
+      "color": "#5b6df9"
+    }
+  ],
+  "measurements": [],
+  "known": [
+    {
+      "id": 1785609311996,
+      "expression": "distinct(ABC)",
+      "enabled": true,
+      "color": "#5b6df9"
+    },
+    {
+      "id": 1785609311997,
+      "expression": "∠BAC = 40°",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785609311998,
+      "expression": "∠ABC = 60°",
+      "enabled": true,
+      "color": "#26a880"
+    },
+    {
+      "id": 1785609311999,
+      "expression": "∠BCA = 80°",
+      "enabled": true,
+      "color": "#f0a11b"
+    },
+    {
+      "id": 1785609312003,
+      "expression": "AB = 1",
+      "enabled": true,
+      "color": "#8c5ad7"
+    }
+  ],
+  "unknown": [
+    {
+      "id": 1785609312001,
+      "expression": "BC = ?",
+      "enabled": true,
+      "color": "#ef6b62"
+    },
+    {
+      "id": 1785609312002,
+      "expression": "CA = ?",
+      "enabled": true,
+      "color": "#26a880"
+    }
+  ],
+  "groups": [],
+  "solverEpsilon": "1e-6",
+  "solverMaxIterations": "1200",
+  "solverTimeLimitMs": "2500",
+  "solverMode": "analytic",
+  "view": {
+    "x": 242.71392923256568,
+    "y": 325.44575600012706,
+    "scale": 405.07210698781347
+  }
+}

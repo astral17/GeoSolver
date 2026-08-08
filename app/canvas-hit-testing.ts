@@ -1,6 +1,18 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
-import type { IntersectionObject, Point, Shape } from "./domain";
+import type {
+  AngleUnit,
+  ExpressionRow,
+  IntersectionObject,
+  MathNode,
+  ParsedConstraint,
+  Point,
+  Shape,
+} from "./domain";
+import {
+  compileImplicitEquation,
+  evaluateImplicitEquation,
+} from "./expressions";
 import {
   ellipseGeometry,
   isAngleOnArc,
@@ -14,6 +26,8 @@ import {
 type CanvasHitTestingOptions = {
   points: Point[];
   shapes: Shape[];
+  parsedKnown: (ExpressionRow & { parsed: ParsedConstraint | null })[];
+  angleUnit: AngleUnit;
   screenToWorld: (x: number, y: number) => { x: number; y: number };
   worldToScreen: (point: Point) => { x: number; y: number };
 };
@@ -31,7 +45,8 @@ export type CanvasObjectHit = {
     | "onRay"
     | "onCircle"
     | "onArc"
-    | "onEllipse";
+    | "onEllipse"
+    | "onEquation";
   objectName: string;
 } | null;
 
@@ -46,10 +61,11 @@ export type CanvasLinearObjectHit = {
 
 export type CanvasIntersectionObjectHit = {
   shapeId: string;
-  startId: string;
-  endId: string;
+  startId?: string;
+  endId?: string;
   thirdId?: string;
   kind: Exclude<IntersectionObject["kind"], "auto" | "polygon">;
+  name?: string;
   objectName: string;
   distance: number;
 };
@@ -115,9 +131,23 @@ function linearEdges(shape: Shape) {
 export function useCanvasHitTesting({
   points,
   shapes,
+  parsedKnown,
+  angleUnit,
   screenToWorld,
   worldToScreen,
 }: CanvasHitTestingOptions) {
+    const equationVariables = useMemo(() => {
+      const variables = new Map<string, MathNode>();
+      parsedKnown.forEach((row) => {
+        if (row.parsed?.kind === "definition" && row.parsed.definition) {
+          variables.set(
+            row.parsed.definition.name,
+            row.parsed.definition.value,
+          );
+        }
+      });
+      return variables;
+    }, [parsedKnown]);
     const findPointsAt = useCallback(
       (x: number, y: number) =>
         points
@@ -189,6 +219,81 @@ export function useCanvasHitTesting({
       (x: number, y: number) => {
         const map = pointMap(points);
         const click = screenToWorld(x, y);
+        const equationHits = shapes.flatMap((shape) => {
+          if (
+            shape.visible === false ||
+            shape.type !== "equation" ||
+            !shape.name
+          ) {
+            return [];
+          }
+          const equation = compileImplicitEquation(shape.equation ?? "");
+          if (!equation) return [];
+          const value = evaluateImplicitEquation(
+            equation,
+            click,
+            map,
+            equationVariables,
+            angleUnit,
+            shapes,
+          );
+          if (!value.valid) return [];
+          const xStepPoint = screenToWorld(x + 2, y);
+          const yStepPoint = screenToWorld(x, y + 2);
+          const xValue = evaluateImplicitEquation(
+            equation,
+            xStepPoint,
+            map,
+            equationVariables,
+            angleUnit,
+            shapes,
+          );
+          const yValue = evaluateImplicitEquation(
+            equation,
+            yStepPoint,
+            map,
+            equationVariables,
+            angleUnit,
+            shapes,
+          );
+          const deltaX = xStepPoint.x - click.x;
+          const deltaY = yStepPoint.y - click.y;
+          const gradientX =
+            Math.abs(deltaX) > 1e-12
+              ? (xValue.difference - value.difference) / deltaX
+              : 0;
+          const gradientY =
+            Math.abs(deltaY) > 1e-12
+              ? (yValue.difference - value.difference) / deltaY
+              : 0;
+          const gradientSquared =
+            gradientX * gradientX + gradientY * gradientY;
+          if (!Number.isFinite(gradientSquared) || gradientSquared < 1e-16) {
+            return [];
+          }
+          const projected = {
+            id: "",
+            x: click.x -
+              (value.difference * gradientX) / gradientSquared,
+            y: click.y -
+              (value.difference * gradientY) / gradientSquared,
+          };
+          const projectedScreen = worldToScreen(projected);
+          const hitDistance = Math.hypot(
+            projectedScreen.x - x,
+            projectedScreen.y - y,
+          );
+          if (!Number.isFinite(hitDistance) || hitDistance > 18) return [];
+          return [
+            {
+              shapeId: shape.id,
+              kind: "equation" as const,
+              name: shape.name,
+              objectName: shape.name,
+              distance: hitDistance,
+            },
+          ];
+        });
         const curvedHits = shapes.flatMap((shape) => {
           if (
             shape.visible === false ||
@@ -248,12 +353,15 @@ export function useCanvasHitTesting({
         return [
           ...findLinearObjectsAt(x, y),
           ...curvedHits,
+          ...equationHits,
         ].sort((first, second) => first.distance - second.distance) satisfies
           CanvasIntersectionObjectHit[];
       },
       [
         findLinearObjectsAt,
         points,
+        angleUnit,
+        equationVariables,
         screenToWorld,
         shapes,
         worldToScreen,
@@ -263,9 +371,80 @@ export function useCanvasHitTesting({
     const findObjectAt = useCallback(
       (x: number, y: number) => {
         const map = pointMap(points);
-      let closest: CanvasObjectHit = null;
+        let closest: CanvasObjectHit = null;
         shapes.forEach((shape) => {
           if (shape.visible === false) return;
+          if (
+            shape.type === "equation" &&
+            shape.name
+          ) {
+            const equation = compileImplicitEquation(shape.equation ?? "");
+            if (!equation) return;
+            const click = screenToWorld(x, y);
+            const value = evaluateImplicitEquation(
+              equation,
+              click,
+              map,
+              equationVariables,
+              angleUnit,
+              shapes,
+            );
+            const stepX = screenToWorld(x + 2, y);
+            const stepY = screenToWorld(x, y + 2);
+            const xValue = evaluateImplicitEquation(
+              equation,
+              stepX,
+              map,
+              equationVariables,
+              angleUnit,
+              shapes,
+            );
+            const yValue = evaluateImplicitEquation(
+              equation,
+              stepY,
+              map,
+              equationVariables,
+              angleUnit,
+              shapes,
+            );
+            const gradientX =
+              (xValue.difference - value.difference) /
+              Math.max(Math.abs(stepX.x - click.x), 1e-12);
+            const rawDeltaY = stepY.y - click.y;
+            const gradientY =
+              (yValue.difference - value.difference) /
+              (Math.abs(rawDeltaY) > 1e-12 ? rawDeltaY : 1e-12);
+            const gradientSquared =
+              gradientX * gradientX + gradientY * gradientY;
+            if (!value.valid || gradientSquared < 1e-16) return;
+            const projected = {
+              id: "",
+              x: click.x -
+                (value.difference * gradientX) / gradientSquared,
+              y: click.y -
+                (value.difference * gradientY) / gradientSquared,
+            };
+            const projectedScreen = worldToScreen(projected);
+            const hitDistance = Math.hypot(
+              x - projectedScreen.x,
+              y - projectedScreen.y,
+            );
+            if (
+              hitDistance <= 18 &&
+              (!closest || hitDistance < closest.distance)
+            ) {
+              closest = {
+                startId: "",
+                endId: "",
+                shapeId: shape.id,
+                point: projected,
+                distance: hitDistance,
+                constraintKind: "onEquation",
+                objectName: shape.name,
+              };
+            }
+            return;
+          }
           if (shape.type === "ellipse") {
             const firstFocus = map.get(shape.points[0]);
             const secondFocus = map.get(shape.points[1]);
@@ -485,12 +664,20 @@ export function useCanvasHitTesting({
                 | "onLine"
                 | "onRay"
                 | "onCircle"
-                | "onEllipse";
+                | "onEllipse"
+                | "onEquation";
               objectName: string;
             }
           | null;
       },
-      [points, screenToWorld, shapes, worldToScreen],
+      [
+        angleUnit,
+        equationVariables,
+        points,
+        screenToWorld,
+        shapes,
+        worldToScreen,
+      ],
     );
 
   return {
